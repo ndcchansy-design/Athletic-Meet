@@ -6,13 +6,10 @@
     <title>獻主會聖母院書院 - 陸運會報名及計分系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- 引入 PapaParse 用於解析 CSV -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
         .hidden { display: none !important; }
-        
-        /* 自訂 Checkbox 樣式 */
         input[type="checkbox"]:disabled + span { color: #9ca3af; text-decoration: line-through; }
         label:has(input[type="checkbox"]:disabled) { cursor: not-allowed; opacity: 0.6; background-color: #f9fafb; }
     </style>
@@ -71,30 +68,20 @@
                     <select id="stu-grade-select" class="w-full md:w-1/2 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 bg-white font-medium">
                         <!-- 動態生成 -->
                     </select>
-                    <p class="text-sm text-blue-600 mt-2"><i class="fas fa-info-circle"></i> 系統已根據章程 (丙組:2012或以後, 乙組:2010或以後) 計算您的資格。</p>
+                    <p class="text-sm text-blue-600 mt-2"><i class="fas fa-info-circle"></i> 系統已根據章程計算您的資格。下方比賽項目會根據您的性別與組別自動更新。</p>
                 </div>
 
                 <div class="mb-6">
                     <h3 class="text-lg font-bold mb-3 text-blue-800 border-l-4 border-blue-800 pl-2">徑賽項目 (Track)</h3>
                     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="track-events">
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-blue-50 cursor-pointer transition"><input type="checkbox" class="track-cb w-5 h-5 text-blue-600 rounded" value="100M"> <span class="font-medium">100M</span></label>
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-blue-50 cursor-pointer transition"><input type="checkbox" class="track-cb w-5 h-5 text-blue-600 rounded" value="200M"> <span class="font-medium">200M</span></label>
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-blue-50 cursor-pointer transition"><input type="checkbox" class="track-cb w-5 h-5 text-blue-600 rounded" value="400M"> <span class="font-medium">400M</span></label>
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-blue-50 cursor-pointer transition"><input type="checkbox" class="track-cb w-5 h-5 text-blue-600 rounded" value="800M"> <span class="font-medium">800M</span></label>
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-blue-50 cursor-pointer transition"><input type="checkbox" class="track-cb w-5 h-5 text-blue-600 rounded" value="1500M"> <span class="font-medium">1500M</span></label>
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-blue-50 cursor-pointer transition"><input type="checkbox" class="track-cb w-5 h-5 text-blue-600 rounded" value="100M跨欄"> <span class="font-medium">100M 跨欄</span></label>
+                        <!-- 由 JavaScript 動態生成 -->
                     </div>
                 </div>
 
                 <div class="mb-6">
                     <h3 class="text-lg font-bold mb-3 text-green-800 border-l-4 border-green-800 pl-2">田賽項目 (Field)</h3>
                     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="field-events">
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-green-50 cursor-pointer transition"><input type="checkbox" class="field-cb w-5 h-5 text-green-600 rounded" value="壘球"> <span class="font-medium">壘球</span></label>
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-green-50 cursor-pointer transition"><input type="checkbox" class="field-cb w-5 h-5 text-green-600 rounded" value="鉛球"> <span class="font-medium">鉛球</span></label>
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-green-50 cursor-pointer transition"><input type="checkbox" class="field-cb w-5 h-5 text-green-600 rounded" value="鐵餅"> <span class="font-medium">鐵餅</span></label>
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-green-50 cursor-pointer transition"><input type="checkbox" class="field-cb w-5 h-5 text-green-600 rounded" value="標槍"> <span class="font-medium">標槍</span></label>
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-green-50 cursor-pointer transition"><input type="checkbox" class="field-cb w-5 h-5 text-green-600 rounded" value="跳高"> <span class="font-medium">跳高</span></label>
-                        <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-green-50 cursor-pointer transition"><input type="checkbox" class="field-cb w-5 h-5 text-green-600 rounded" value="跳遠"> <span class="font-medium">跳遠</span></label>
+                        <!-- 由 JavaScript 動態生成 -->
                     </div>
                 </div>
 
@@ -292,7 +279,7 @@
                             <option value="丙組">丙組</option>
                         </select>
                         <select id="edit-event" class="border border-gray-300 rounded px-3 py-2 bg-white flex-1 focus:outline-none focus:border-blue-500">
-                            <!-- 選項由 JS 動態生成 -->
+                            <!-- 選項由 JS 動態生成 (根據性別與組別) -->
                         </select>
                         <button onclick="addEventToModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition whitespace-nowrap">
                             <i class="fas fa-plus mr-1"></i> 新增
@@ -300,7 +287,7 @@
                     </div>
                 </div>
 
-                <!-- 工作人員區塊 (新增) -->
+                <!-- 工作人員區塊 -->
                 <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300 shadow-sm">
                     <label class="block text-sm font-bold text-yellow-800 mb-2"><i class="fas fa-hands-helping mr-1"></i> 大會工作人員崗位：</label>
                     <select id="edit-helper" class="w-full border border-yellow-400 rounded px-3 py-2 bg-white focus:outline-none focus:border-yellow-500">
@@ -368,9 +355,9 @@
         let globalStudentsData = [];
         let currentUser = null;
         
-        // 統一徑賽與田賽名單 (學生與管理員共用)
-        const trackEvents = ['100M', '200M', '400M', '800M', '1500M', '100M跨欄'];
-        const fieldEvents = ['跳遠', '跳高', '鉛球', '鐵餅', '標槍', '壘球'];
+        // 用於判斷圖示與顏色的全域清單 (包含舊名稱以防舊資料出錯)
+        const trackEventsList = ['100M', '100M跨欄', '200M', '400M', '800M', '1500M'];
+        const fieldEventsList = ['跳高', '跳遠', '擲鐵餅', '擲標槍', '推鉛球', '擲壘球', '鐵餅', '標槍', '鉛球', '壘球'];
         const helperRolesList = ['司令台', '跳高裁判員', '跳遠裁判員', '鉛球裁判員', '標槍/壘球裁判員', '鐵餅裁判員', '召集處', '司線員', '紀錄員', '計時員', '終點裁判員', '彎道裁判員', '獎品', '攝影'];
         
         // 模擬學生資料 (供測試登入使用)
@@ -385,15 +372,27 @@
             bibNumber: '3A01'
         };
 
-        // 初始化頁面時，將所有項目加入到編輯視窗的下拉選單中
-        window.onload = () => {
-            const editEventSelect = document.getElementById('edit-event');
-            editEventSelect.innerHTML += `<optgroup label="徑賽 (Track)">`;
-            trackEvents.forEach(ev => editEventSelect.innerHTML += `<option value="${ev}">${ev}</option>`);
-            editEventSelect.innerHTML += `</optgroup><optgroup label="田賽 (Field)">`;
-            fieldEvents.forEach(ev => editEventSelect.innerHTML += `<option value="${ev}">${ev}</option>`);
-            editEventSelect.innerHTML += `</optgroup>`;
-        };
+        // 核心邏輯：根據性別與組別，回傳合法的比賽項目
+        function getValidEvents(gender, grade) {
+            const isMale = (gender === 'M' || gender === '男');
+            const prefix = isMale ? '男' : '女';
+            const gradeLetter = grade.charAt(0); // '甲', '乙', '丙'
+            const category = prefix + gradeLetter; // e.g., '男甲', '女乙'
+
+            // 所有組別都有的項目
+            let validTrack = ['100M', '100M跨欄', '200M', '400M', '800M', '1500M'];
+            let validField = ['跳高', '跳遠', '擲鐵餅', '推鉛球'];
+
+            // 根據圖片規則加入特定田賽
+            if (['男甲', '男乙', '女甲'].includes(category)) {
+                validField.push('擲標槍');
+            }
+            if (['男丙', '女乙', '女丙'].includes(category)) {
+                validField.push('擲壘球');
+            }
+
+            return { track: validTrack, field: validField };
+        }
 
         // 登入與登出
         function simulateLogin(role) {
@@ -421,9 +420,6 @@
             document.getElementById('view-student').classList.add('hidden');
             document.getElementById('view-admin').classList.add('hidden');
             document.getElementById('nav-user-info').classList.add('hidden');
-            
-            // 重置學生表單
-            document.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; cb.disabled = false; });
             document.getElementById('helper-select').value = "";
         }
 
@@ -444,7 +440,6 @@
             const birthYear = parseInt(currentUser.dob.split('-')[0]);
             document.getElementById('stu-year').innerText = birthYear;
 
-            // 處理組別選擇 (向上挑戰，不可降組)
             const defaultGrade = calculateDefaultGrade(birthYear);
             const select = document.getElementById('stu-grade-select');
             select.innerHTML = ''; 
@@ -468,39 +463,76 @@
                 select.appendChild(el);
             });
 
-            // 綁定 Checkbox 事件並初始化驗證
+            // 當組別改變時，重新渲染合法的比賽項目
+            select.addEventListener('change', renderStudentEvents);
+            
+            // 初始渲染項目
+            renderStudentEvents();
+        }
+
+        function renderStudentEvents() {
+            const grade = document.getElementById('stu-grade-select').value;
+            const validEvents = getValidEvents(currentUser.gender, grade);
+
+            const trackContainer = document.getElementById('track-events');
+            const fieldContainer = document.getElementById('field-events');
+
+            // 記住目前的選擇，如果切換組別後該項目仍合法，則保留勾選
+            const currentTrack = Array.from(document.querySelectorAll('.track-cb:checked')).map(cb => cb.value);
+            const currentField = Array.from(document.querySelectorAll('.field-cb:checked')).map(cb => cb.value);
+
+            trackContainer.innerHTML = '';
+            validEvents.track.forEach(ev => {
+                const checked = currentTrack.includes(ev) ? 'checked' : '';
+                trackContainer.innerHTML += `
+                    <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-blue-50 cursor-pointer transition">
+                        <input type="checkbox" class="track-cb w-5 h-5 text-blue-600 rounded" value="${ev}" ${checked}>
+                        <span class="font-medium">${ev}</span>
+                    </label>`;
+            });
+
+            fieldContainer.innerHTML = '';
+            validEvents.field.forEach(ev => {
+                const checked = currentField.includes(ev) ? 'checked' : '';
+                fieldContainer.innerHTML += `
+                    <label class="flex items-center space-x-2 bg-white border p-3 rounded-lg hover:bg-green-50 cursor-pointer transition">
+                        <input type="checkbox" class="field-cb w-5 h-5 text-green-600 rounded" value="${ev}" ${checked}>
+                        <span class="font-medium">${ev}</span>
+                    </label>`;
+            });
+
+            // 重新綁定驗證事件
+            document.querySelectorAll('.track-cb, .field-cb').forEach(cb => cb.addEventListener('change', validateStudentSelection));
+            validateStudentSelection();
+        }
+
+        function validateStudentSelection() {
             const trackCbs = document.querySelectorAll('.track-cb');
             const fieldCbs = document.querySelectorAll('.field-cb');
             
-            const validateSelection = () => {
-                let trackCount = document.querySelectorAll('.track-cb:checked').length;
-                let fieldCount = document.querySelectorAll('.field-cb:checked').length;
-                let total = trackCount + fieldCount;
+            let trackCount = document.querySelectorAll('.track-cb:checked').length;
+            let fieldCount = document.querySelectorAll('.field-cb:checked').length;
+            let total = trackCount + fieldCount;
 
-                document.getElementById('track-count').innerText = trackCount;
-                document.getElementById('field-count').innerText = fieldCount;
+            document.getElementById('track-count').innerText = trackCount;
+            document.getElementById('field-count').innerText = fieldCount;
 
-                // 規則：最多3項 (2徑1田 或 2田1徑)
-                trackCbs.forEach(cb => {
-                    if (!cb.checked) cb.disabled = (trackCount >= 2) || (total >= 3);
-                });
+            // 規則：最多3項 (2徑1田 或 2田1徑)
+            trackCbs.forEach(cb => {
+                if (!cb.checked) cb.disabled = (trackCount >= 2) || (total >= 3);
+            });
 
-                fieldCbs.forEach(cb => {
-                    if (!cb.checked) cb.disabled = (fieldCount >= 2) || (total >= 3);
-                });
+            fieldCbs.forEach(cb => {
+                if (!cb.checked) cb.disabled = (fieldCount >= 2) || (total >= 3);
+            });
 
-                // 工作人員邏輯 (若無報名項目，強制顯示)
-                if (total === 0) {
-                    document.getElementById('helper-section').classList.remove('hidden');
-                } else {
-                    document.getElementById('helper-section').classList.add('hidden');
-                    document.getElementById('helper-select').value = ""; 
-                }
-            };
-
-            trackCbs.forEach(cb => cb.addEventListener('change', validateSelection));
-            fieldCbs.forEach(cb => cb.addEventListener('change', validateSelection));
-            validateSelection();
+            // 工作人員邏輯 (若無報名項目，強制顯示)
+            if (total === 0) {
+                document.getElementById('helper-section').classList.remove('hidden');
+            } else {
+                document.getElementById('helper-section').classList.add('hidden');
+                document.getElementById('helper-select').value = ""; 
+            }
         }
 
         async function submitRegistration() {
@@ -549,7 +581,6 @@
                 btn.disabled = true;
 
                 try {
-                    // 寫入 Firebase (若已連線)
                     if (window.db) {
                         const docRef = window.doc(window.db, "students", currentUser.loginName);
                         await window.writeBatch(window.db).set(docRef, {
@@ -560,7 +591,6 @@
                         }, { merge: true });
                     }
                     alert("✅ 報名成功！資料已提交至系統。");
-                    // 重新載入資料庫以便管理員介面更新
                     if(window.db) fetchStudentsData();
                 } catch (error) {
                     alert("❌ 提交失敗：" + error.message);
@@ -595,13 +625,13 @@
                 const querySnapshot = await window.getDocs(window.collection(window.db, "students"));
                 globalStudentsData = [];
                 let classesSet = new Set();
-                let eventsSet = new Set();
+                let dbEventsSet = new Set(); // 資料庫中實際存在的項目
 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
                     globalStudentsData.push(data);
                     if (data.classCode) classesSet.add(data.classCode);
-                    if (data.registeredEvents) data.registeredEvents.forEach(ev => eventsSet.add(ev));
+                    if (data.registeredEvents) data.registeredEvents.forEach(ev => dbEventsSet.add(ev));
                 });
 
                 globalStudentsData.sort((a, b) => {
@@ -609,17 +639,32 @@
                     return (a.classCode || '').localeCompare(b.classCode || '');
                 });
 
+                // 更新班別 Filter
                 const classFilter = document.getElementById('class-filter');
                 const currentClass = classFilter.value;
                 classFilter.innerHTML = '<option value="ALL">顯示所有班別</option>';
                 Array.from(classesSet).sort().forEach(cls => classFilter.innerHTML += `<option value="${cls}">${cls}</option>`);
                 if (Array.from(classesSet).includes(currentClass)) classFilter.value = currentClass;
 
+                // 產生所有合法的比賽項目組合，供管理員查詢 (確保即使沒人報名也能查)
+                const allValidCombinations = [];
+                ['男', '女'].forEach(g => {
+                    ['甲組', '乙組', '丙組'].forEach(grade => {
+                        const genderPrefix = g === '男' ? '男子' : '女子';
+                        const valid = getValidEvents(g, grade);
+                        valid.track.forEach(ev => allValidCombinations.push(`${genderPrefix}${grade} ${ev}`));
+                        valid.field.forEach(ev => allValidCombinations.push(`${genderPrefix}${grade} ${ev}`));
+                    });
+                });
+
+                // 合併合法組合與資料庫現有組合 (防呆舊資料)
+                const finalEventsList = Array.from(new Set([...allValidCombinations, ...Array.from(dbEventsSet)])).sort();
+
                 const eventFilter = document.getElementById('event-filter');
                 const currentEvent = eventFilter.value;
                 eventFilter.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
-                Array.from(eventsSet).sort().forEach(ev => eventFilter.innerHTML += `<option value="${ev}">${ev}</option>`);
-                if (Array.from(eventsSet).includes(currentEvent)) eventFilter.value = currentEvent;
+                finalEventsList.forEach(ev => eventFilter.innerHTML += `<option value="${ev}">${ev}</option>`);
+                if (finalEventsList.includes(currentEvent)) eventFilter.value = currentEvent;
 
                 renderOverviewTable();
                 renderEventQueryTable();
@@ -727,8 +772,6 @@
             currentEditingEvents = currentEditingStudent.registeredEvents ? [...currentEditingStudent.registeredEvents] : [];
             document.getElementById('edit-student-name').innerText = currentEditingStudent.nameZh || currentEditingStudent.nameEn;
             document.getElementById('edit-student-class').innerText = `${currentEditingStudent.classCode}班 (班號: ${currentEditingStudent.classNo}) | 性別: ${currentEditingStudent.gender}`;
-            
-            // 載入工作人員狀態
             document.getElementById('edit-helper').value = currentEditingStudent.helperRole || "";
 
             let dobText = currentEditingStudent.dob || '未知';
@@ -745,17 +788,36 @@
             
             document.getElementById('edit-student-dob').innerHTML = `<i class="fas fa-birthday-cake mr-1"></i>出生日期: ${dobText} <span class="text-blue-600 font-bold ml-2">(系統建議: ${suggestedGrade})</span>`;
 
+            const gradeSelect = document.getElementById('edit-grade');
             if (currentEditingEvents.length > 0) {
                 const firstEvent = currentEditingEvents[0];
-                if (firstEvent.includes('甲組')) document.getElementById('edit-grade').value = '甲組';
-                else if (firstEvent.includes('乙組')) document.getElementById('edit-grade').value = '乙組';
-                else if (firstEvent.includes('丙組')) document.getElementById('edit-grade').value = '丙組';
+                if (firstEvent.includes('甲組')) gradeSelect.value = '甲組';
+                else if (firstEvent.includes('乙組')) gradeSelect.value = '乙組';
+                else if (firstEvent.includes('丙組')) gradeSelect.value = '丙組';
             } else if (suggestedGrade !== '未知') {
-                document.getElementById('edit-grade').value = suggestedGrade;
+                gradeSelect.value = suggestedGrade;
             }
 
+            // 綁定組別切換事件，更新合法的比賽項目選項
+            gradeSelect.removeEventListener('change', renderAdminEditDropdown); // 避免重複綁定
+            gradeSelect.addEventListener('change', renderAdminEditDropdown);
+
+            renderAdminEditDropdown();
             renderModalEvents();
             document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function renderAdminEditDropdown() {
+            if (!currentEditingStudent) return;
+            const grade = document.getElementById('edit-grade').value;
+            const validEvents = getValidEvents(currentEditingStudent.gender, grade);
+            const select = document.getElementById('edit-event');
+
+            select.innerHTML = '<optgroup label="徑賽 (Track)">';
+            validEvents.track.forEach(ev => select.innerHTML += `<option value="${ev}">${ev}</option>`);
+            select.innerHTML += '</optgroup><optgroup label="田賽 (Field)">';
+            validEvents.field.forEach(ev => select.innerHTML += `<option value="${ev}">${ev}</option>`);
+            select.innerHTML += '</optgroup>';
         }
 
         function closeEditModal() {
@@ -772,7 +834,7 @@
                 return;
             }
             currentEditingEvents.forEach(ev => {
-                const isTrack = trackEvents.some(t => ev.includes(t));
+                const isTrack = trackEventsList.some(t => ev.includes(t));
                 const colorClass = isTrack ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-green-100 text-green-800 border-green-200';
                 const icon = isTrack ? '<i class="fas fa-running mr-1"></i>' : '<i class="fas fa-dumbbell mr-1"></i>';
                 const tag = document.createElement('div');
@@ -803,19 +865,20 @@
                 if (grade !== currentGrade) {
                     alert(`❌ 報名規則錯誤：\n該學生已報名「${currentGrade}」的項目。\n所有比賽必須為同一組別，不可跨組報名！`);
                     document.getElementById('edit-grade').value = currentGrade;
+                    renderAdminEditDropdown(); // 恢復選單
                     return;
                 }
             }
 
             let trackCount = 0, fieldCount = 0;
             currentEditingEvents.forEach(ev => {
-                if (trackEvents.some(t => ev.includes(t))) trackCount++;
-                if (fieldEvents.some(f => ev.includes(f))) fieldCount++;
+                if (trackEventsList.some(t => ev.includes(t))) trackCount++;
+                if (fieldEventsList.some(f => ev.includes(f))) fieldCount++;
             });
 
             if (currentEditingEvents.length >= 3) return alert("❌ 報名規則錯誤：\n每位學生最多只能報名 3 個項目！");
-            if (trackEvents.includes(eventName) && trackCount >= 2) return alert("❌ 報名規則錯誤：\n每位學生最多只能報名 2 個「徑賽」項目！");
-            if (fieldEvents.includes(eventName) && fieldCount >= 2) return alert("❌ 報名規則錯誤：\n每位學生最多只能報名 2 個「田賽」項目！");
+            if (trackEventsList.includes(eventName) && trackCount >= 2) return alert("❌ 報名規則錯誤：\n每位學生最多只能報名 2 個「徑賽」項目！");
+            if (fieldEventsList.includes(eventName) && fieldCount >= 2) return alert("❌ 報名規則錯誤：\n每位學生最多只能報名 2 個「田賽」項目！");
 
             currentEditingEvents.push(fullEventName);
             renderModalEvents();
@@ -828,7 +891,6 @@
             
             const helperRole = document.getElementById('edit-helper').value || null;
 
-            // 管理員防呆提示：如果同時有比賽項目又有工作人員
             if (currentEditingEvents.length > 0 && helperRole) {
                 if (!confirm("⚠️ 該學生已報名比賽項目，同時又被指派為「工作人員」。\n確定要這樣儲存嗎？（點擊確定將強制儲存）")) {
                     return;
@@ -888,18 +950,18 @@
                         
                         let numTrack = Math.floor(Math.random() * 3); 
                         let numField = Math.floor(Math.random() * 3); 
-                        // 確保最多 3 項
                         if (numTrack + numField > 3) { if (Math.random() > 0.5) numTrack--; else numField--; }
                         
                         let selectedEvents = [];
                         let helperRole = null;
 
-                        // 如果隨機到 0 項，就指派為工作人員
                         if (numTrack + numField === 0) {
                             helperRole = helperRolesList[Math.floor(Math.random() * helperRolesList.length)];
                         } else {
-                            let shuffledTrack = [...trackEvents].sort(() => 0.5 - Math.random()).slice(0, numTrack);
-                            let shuffledField = [...fieldEvents].sort(() => 0.5 - Math.random()).slice(0, numField);
+                            // 根據性別與組別取得合法的賽項
+                            const validEvents = getValidEvents(student.gender, grade);
+                            let shuffledTrack = [...validEvents.track].sort(() => 0.5 - Math.random()).slice(0, numTrack);
+                            let shuffledField = [...validEvents.field].sort(() => 0.5 - Math.random()).slice(0, numField);
                             selectedEvents = [...shuffledTrack, ...shuffledField].map(ev => `${genderPrefix}${grade} ${ev}`);
                         }
 
