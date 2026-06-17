@@ -245,15 +245,15 @@
 
     <!-- 編輯學生報名項目的彈出視窗 (Modal) -->
     <div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div class="bg-blue-800 text-white px-6 py-4 flex justify-between items-center">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-blue-800 text-white px-6 py-4 flex justify-between items-center shrink-0">
                 <h3 class="text-lg font-bold"><i class="fas fa-edit mr-2"></i>編輯學生報名資料</h3>
                 <button onclick="closeEditModal()" class="text-white hover:text-gray-200 focus:outline-none">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
             
-            <div class="p-6">
+            <div class="p-6 overflow-y-auto">
                 <!-- 學生基本資訊 -->
                 <div class="mb-4 flex items-center gap-4 border-b pb-4">
                     <div class="bg-blue-100 text-blue-800 rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl">
@@ -267,7 +267,7 @@
                 </div>
 
                 <!-- 報名規則提示 -->
-                <div class="bg-yellow-50 border border-yellow-200 p-3 rounded-lg mb-4 text-sm text-yellow-800">
+                <div class="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-4 text-sm text-blue-800">
                     <ul class="list-disc list-inside space-y-1 ml-1 text-xs font-medium">
                         <li>所有報名項目必須為<strong>同一組別</strong>（不可跨組）。</li>
                         <li>每位學生最多報名 <strong>3 個項目</strong> (最多兩徑一田或兩田一徑)。</li>
@@ -275,15 +275,15 @@
                 </div>
 
                 <!-- 目前已報名項目 -->
-                <div class="mb-6">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">目前已報名項目：</label>
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">目前已報名比賽項目：</label>
                     <div id="edit-current-events" class="flex flex-wrap gap-2 min-h-[40px] p-3 bg-gray-50 rounded-lg border border-gray-200">
                         <!-- 標籤將由 JS 動態生成 -->
                     </div>
                 </div>
 
                 <!-- 新增項目區塊 -->
-                <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4 shadow-sm">
                     <label class="block text-sm font-bold text-blue-800 mb-2">新增比賽項目：</label>
                     <div class="flex flex-col sm:flex-row gap-2">
                         <select id="edit-grade" class="border border-gray-300 rounded px-3 py-2 bg-white flex-1 focus:outline-none focus:border-blue-500">
@@ -299,10 +299,33 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- 工作人員區塊 (新增) -->
+                <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300 shadow-sm">
+                    <label class="block text-sm font-bold text-yellow-800 mb-2"><i class="fas fa-hands-helping mr-1"></i> 大會工作人員崗位：</label>
+                    <select id="edit-helper" class="w-full border border-yellow-400 rounded px-3 py-2 bg-white focus:outline-none focus:border-yellow-500">
+                        <option value="">無 (不擔任工作人員)</option>
+                        <option value="司令台">司令台</option>
+                        <option value="跳高裁判員">跳高裁判員</option>
+                        <option value="跳遠裁判員">跳遠裁判員</option>
+                        <option value="鉛球裁判員">鉛球裁判員</option>
+                        <option value="標槍/壘球裁判員">標槍 / 壘球裁判員</option>
+                        <option value="鐵餅裁判員">鐵餅裁判員</option>
+                        <option value="召集處">召集處</option>
+                        <option value="司線員">司線員</option>
+                        <option value="紀錄員">紀錄員</option>
+                        <option value="計時員">計時員</option>
+                        <option value="終點裁判員">終點裁判員</option>
+                        <option value="彎道裁判員">彎道裁判員</option>
+                        <option value="獎品">獎品</option>
+                        <option value="攝影">攝影</option>
+                    </select>
+                    <p class="text-xs text-yellow-700 mt-2">註：通常未報名比賽項目的學生才需擔任工作人員。</p>
+                </div>
             </div>
 
             <!-- 底部按鈕 -->
-            <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+            <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t shrink-0">
                 <button onclick="closeEditModal()" class="px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition">取消</button>
                 <button id="save-edit-btn" onclick="saveStudentEvents()" class="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow transition flex items-center">
                     <i class="fas fa-save mr-2"></i> 儲存變更
@@ -348,6 +371,7 @@
         // 統一徑賽與田賽名單 (學生與管理員共用)
         const trackEvents = ['100M', '200M', '400M', '800M', '1500M', '100M跨欄'];
         const fieldEvents = ['跳遠', '跳高', '鉛球', '鐵餅', '標槍', '壘球'];
+        const helperRolesList = ['司令台', '跳高裁判員', '跳遠裁判員', '鉛球裁判員', '標槍/壘球裁判員', '鐵餅裁判員', '召集處', '司線員', '紀錄員', '計時員', '終點裁判員', '彎道裁判員', '獎品', '攝影'];
         
         // 模擬學生資料 (供測試登入使用)
         const mockStudentData = {
@@ -624,15 +648,21 @@
                 const isHelper = student.helperRole && student.helperRole !== "";
                 
                 let statusHtml = `<span class="bg-red-100 text-red-700 py-1 px-3 rounded-full text-xs font-bold">未報名</span>`;
-                if (hasEvents) statusHtml = `<span class="bg-green-100 text-green-700 py-1 px-3 rounded-full text-xs font-bold">已報名</span>`;
+                if (hasEvents && isHelper) statusHtml = `<span class="bg-purple-100 text-purple-700 py-1 px-3 rounded-full text-xs font-bold">參賽+工作</span>`;
+                else if (hasEvents) statusHtml = `<span class="bg-green-100 text-green-700 py-1 px-3 rounded-full text-xs font-bold">已報名</span>`;
                 else if (isHelper) statusHtml = `<span class="bg-yellow-100 text-yellow-700 py-1 px-3 rounded-full text-xs font-bold">工作人員</span>`;
                 
                 let eventsHtml = '<span class="text-gray-400">-</span>';
+                let tags = [];
                 if (hasEvents) {
-                    eventsHtml = student.registeredEvents.map(e => `<span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-1 text-xs mr-1 mb-1">${e}</span>`).join('');
-                } else if (isHelper) {
-                    eventsHtml = `<span class="inline-block bg-yellow-50 text-yellow-800 border border-yellow-300 rounded px-2 py-1 text-xs"><i class="fas fa-hands-helping mr-1"></i>${student.helperRole}</span>`;
+                    student.registeredEvents.forEach(e => {
+                        tags.push(`<span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-1 text-xs mr-1 mb-1">${e}</span>`);
+                    });
                 }
+                if (isHelper) {
+                    tags.push(`<span class="inline-block bg-yellow-50 text-yellow-800 border border-yellow-300 rounded px-2 py-1 text-xs mr-1 mb-1"><i class="fas fa-hands-helping mr-1"></i>${student.helperRole}</span>`);
+                }
+                if (tags.length > 0) eventsHtml = tags.join('');
 
                 tr.innerHTML = `
                     <td class="py-3 px-4 text-left font-medium">${student.classCode || '-'}</td>
@@ -697,6 +727,9 @@
             currentEditingEvents = currentEditingStudent.registeredEvents ? [...currentEditingStudent.registeredEvents] : [];
             document.getElementById('edit-student-name').innerText = currentEditingStudent.nameZh || currentEditingStudent.nameEn;
             document.getElementById('edit-student-class').innerText = `${currentEditingStudent.classCode}班 (班號: ${currentEditingStudent.classNo}) | 性別: ${currentEditingStudent.gender}`;
+            
+            // 載入工作人員狀態
+            document.getElementById('edit-helper').value = currentEditingStudent.helperRole || "";
 
             let dobText = currentEditingStudent.dob || '未知';
             let suggestedGrade = '未知';
@@ -792,14 +825,22 @@
             if (!window.db || !currentEditingStudent) return;
             const btn = document.getElementById('save-edit-btn');
             const originalHtml = btn.innerHTML;
+            
+            const helperRole = document.getElementById('edit-helper').value || null;
+
+            // 管理員防呆提示：如果同時有比賽項目又有工作人員
+            if (currentEditingEvents.length > 0 && helperRole) {
+                if (!confirm("⚠️ 該學生已報名比賽項目，同時又被指派為「工作人員」。\n確定要這樣儲存嗎？（點擊確定將強制儲存）")) {
+                    return;
+                }
+            }
+
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 儲存中...';
             btn.disabled = true;
 
             try {
                 const batch = window.writeBatch(window.db);
                 const docRef = window.doc(window.db, "students", currentEditingStudent.loginName);
-                // 如果管理員幫學生加了項目，自動清除 helperRole
-                const helperRole = currentEditingEvents.length > 0 ? null : currentEditingStudent.helperRole;
                 
                 batch.update(docRef, {
                     registeredEvents: currentEditingEvents,
@@ -822,7 +863,7 @@
         // ==========================================
         async function randomizeRegistrations() {
             if (!window.db || globalStudentsData.length === 0) return alert("請先確保資料庫中有學生資料！");
-            if (!confirm("⚠️ 警告：這將會覆蓋目前所有學生的報名資料，隨機產生 1~3 個項目。確定要繼續嗎？")) return;
+            if (!confirm("⚠️ 警告：這將會覆蓋目前所有學生的報名資料，隨機產生 1~3 個項目，或指派為工作人員。確定要繼續嗎？")) return;
 
             const btn = event.currentTarget;
             const originalText = btn.innerHTML;
@@ -847,19 +888,27 @@
                         
                         let numTrack = Math.floor(Math.random() * 3); 
                         let numField = Math.floor(Math.random() * 3); 
+                        // 確保最多 3 項
                         if (numTrack + numField > 3) { if (Math.random() > 0.5) numTrack--; else numField--; }
-                        if (numTrack + numField === 0) numTrack = 1;
+                        
+                        let selectedEvents = [];
+                        let helperRole = null;
 
-                        let shuffledTrack = [...trackEvents].sort(() => 0.5 - Math.random()).slice(0, numTrack);
-                        let shuffledField = [...fieldEvents].sort(() => 0.5 - Math.random()).slice(0, numField);
-                        let selectedEvents = [...shuffledTrack, ...shuffledField].map(ev => `${genderPrefix}${grade} ${ev}`);
+                        // 如果隨機到 0 項，就指派為工作人員
+                        if (numTrack + numField === 0) {
+                            helperRole = helperRolesList[Math.floor(Math.random() * helperRolesList.length)];
+                        } else {
+                            let shuffledTrack = [...trackEvents].sort(() => 0.5 - Math.random()).slice(0, numTrack);
+                            let shuffledField = [...fieldEvents].sort(() => 0.5 - Math.random()).slice(0, numField);
+                            selectedEvents = [...shuffledTrack, ...shuffledField].map(ev => `${genderPrefix}${grade} ${ev}`);
+                        }
 
-                        batch.update(docRef, { registeredEvents: selectedEvents, helperRole: null });
+                        batch.update(docRef, { registeredEvents: selectedEvents, helperRole: helperRole });
                     });
                     await batch.commit();
                     processedCount += chunk.length;
                 }
-                alert("✅ 隨機報名資料產生完成！");
+                alert("✅ 隨機報名與工作人員資料產生完成！");
                 fetchStudentsData(); 
             } catch (error) {
                 alert("產生失敗：" + error.message);
