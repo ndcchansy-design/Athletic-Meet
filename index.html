@@ -44,7 +44,7 @@
         </div>
     </nav>
 
-    <div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="max-w-7xl mx-auto px-4 py-8 relative">
         
         <!-- 登入畫面 -->
         <div id="view-login" class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-md mt-10 border-t-4 border-blue-800">
@@ -81,16 +81,15 @@
             <div id="tab-overview" class="admin-content bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <h2 class="text-xl font-bold text-gray-800">學生報名概覽</h2>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 flex-wrap">
                         <select id="class-filter" onchange="renderOverviewTable()" class="border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="ALL">顯示所有班別</option>
-                            <!-- 班別選項將由 JS 動態生成 -->
                         </select>
                         <button onclick="fetchStudentsData()" class="bg-blue-100 text-blue-800 hover:bg-blue-200 px-4 py-2 rounded-lg transition">
                             <i class="fas fa-sync-alt"></i> 重新整理
                         </button>
                         <button onclick="randomizeRegistrations()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition shadow flex items-center">
-                            <i class="fas fa-dice mr-2"></i> 隨機產生報名 (測試用)
+                            <i class="fas fa-dice mr-2"></i> 隨機產生報名 (測試)
                         </button>
                     </div>
                 </div>
@@ -105,10 +104,11 @@
                                 <th class="py-3 px-4 text-center">性別</th>
                                 <th class="py-3 px-4 text-center">狀態</th>
                                 <th class="py-3 px-4 text-left">已報名項目</th>
+                                <th class="py-3 px-4 text-center">操作</th> <!-- 新增操作欄位 -->
                             </tr>
                         </thead>
                         <tbody id="overview-tbody" class="text-gray-600 text-sm font-light">
-                            <tr><td colspan="6" class="py-10 text-center text-gray-400">載入中...</td></tr>
+                            <tr><td colspan="7" class="py-10 text-center text-gray-400">載入中...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -121,7 +121,6 @@
                     <div class="flex items-center gap-3 w-full md:w-auto">
                         <select id="event-filter" onchange="renderEventQueryTable()" class="border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-80">
                             <option value="">-- 請選擇比賽項目 --</option>
-                            <!-- 項目選項將由 JS 動態生成 -->
                         </select>
                     </div>
                 </div>
@@ -180,6 +179,66 @@
         </div>
     </div>
 
+    <!-- 編輯學生報名項目的彈出視窗 (Modal) -->
+    <div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div class="bg-blue-800 text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="text-lg font-bold"><i class="fas fa-edit mr-2"></i>編輯學生報名資料</h3>
+                <button onclick="closeEditModal()" class="text-white hover:text-gray-200 focus:outline-none">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-6">
+                <!-- 學生基本資訊 -->
+                <div class="mb-5 flex items-center gap-4 border-b pb-4">
+                    <div class="bg-blue-100 text-blue-800 rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div>
+                        <div id="edit-student-name" class="text-lg font-bold text-gray-800"></div>
+                        <div id="edit-student-class" class="text-sm text-gray-500"></div>
+                    </div>
+                </div>
+
+                <!-- 目前已報名項目 -->
+                <div class="mb-6">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">目前已報名項目：</label>
+                    <div id="edit-current-events" class="flex flex-wrap gap-2 min-h-[40px] p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <!-- 標籤將由 JS 動態生成 -->
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">點擊項目旁邊的「×」可移除該項目</p>
+                </div>
+
+                <!-- 新增項目區塊 -->
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <label class="block text-sm font-bold text-blue-800 mb-2">新增比賽項目：</label>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <select id="edit-grade" class="border border-gray-300 rounded px-3 py-2 bg-white flex-1 focus:outline-none focus:border-blue-500">
+                            <option value="甲組">甲組</option>
+                            <option value="乙組">乙組</option>
+                            <option value="丙組">丙組</option>
+                        </select>
+                        <select id="edit-event" class="border border-gray-300 rounded px-3 py-2 bg-white flex-1 focus:outline-none focus:border-blue-500">
+                            <!-- 選項由 JS 動態生成 -->
+                        </select>
+                        <button onclick="addEventToModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition whitespace-nowrap">
+                            <i class="fas fa-plus mr-1"></i> 新增
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部按鈕 -->
+            <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+                <button onclick="closeEditModal()" class="px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition">取消</button>
+                <button id="save-edit-btn" onclick="saveStudentEvents()" class="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow transition flex items-center">
+                    <i class="fas fa-save mr-2"></i> 儲存變更
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
@@ -206,7 +265,6 @@
             console.error("❌ Firebase 初始化失敗：", error);
         }
 
-        // 暴露給全域
         window.db = db;
         window.writeBatch = writeBatch;
         window.doc = doc;
@@ -215,15 +273,24 @@
     </script>
 
     <script>
-        // 全域變數存放學生資料，避免頻繁讀取資料庫
+        // 全域變數
         let globalStudentsData = [];
-        
-        // 可供選擇的比賽項目清單 (用於隨機產生及選單)
         const trackEvents = ['100M', '200M', '400M', '800M', '1500M'];
         const fieldEvents = ['跳遠', '跳高', '鉛球', '鐵餅', '標槍'];
         const allEvents = [...trackEvents, ...fieldEvents];
 
-        // --- 核心邏輯與狀態管理 ---
+        // 編輯視窗專用變數
+        let currentEditingStudent = null;
+        let currentEditingEvents = [];
+
+        // 初始化頁面時，將所有項目加入到編輯視窗的下拉選單中
+        window.onload = () => {
+            const editEventSelect = document.getElementById('edit-event');
+            allEvents.forEach(ev => {
+                editEventSelect.innerHTML += `<option value="${ev}">${ev}</option>`;
+            });
+        };
+
         function simulateLogin(role) {
             document.getElementById('view-login').classList.add('hidden');
             document.getElementById('nav-user-info').classList.remove('hidden');
@@ -231,7 +298,6 @@
             if (role === 'admin') {
                 document.getElementById('current-user-name').innerText = `管理員`;
                 document.getElementById('view-admin').classList.remove('hidden');
-                // 登入後自動載入學生資料
                 fetchStudentsData();
             }
         }
@@ -254,12 +320,11 @@
             document.getElementById(tabId).classList.remove('hidden');
         }
 
-        // --- 讀取學生資料與渲染 UI ---
         async function fetchStudentsData() {
             if (!window.db) return;
             
             const tbody = document.getElementById('overview-tbody');
-            tbody.innerHTML = '<tr><td colspan="6" class="py-10 text-center text-blue-600"><i class="fas fa-spinner fa-spin mr-2"></i>正在從資料庫載入資料...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="py-10 text-center text-blue-600"><i class="fas fa-spinner fa-spin mr-2"></i>正在從資料庫載入資料...</td></tr>';
             
             try {
                 const querySnapshot = await window.getDocs(window.collection(window.db, "students"));
@@ -276,13 +341,11 @@
                     }
                 });
 
-                // 排序學生：先按班別，再按班號
                 globalStudentsData.sort((a, b) => {
                     if (a.classCode === b.classCode) return a.classNo - b.classNo;
                     return a.classCode.localeCompare(b.classCode);
                 });
 
-                // 更新班別下拉選單
                 const classFilter = document.getElementById('class-filter');
                 const currentClass = classFilter.value;
                 classFilter.innerHTML = '<option value="ALL">顯示所有班別</option>';
@@ -291,7 +354,6 @@
                 });
                 if (Array.from(classesSet).includes(currentClass)) classFilter.value = currentClass;
 
-                // 更新項目查詢下拉選單
                 const eventFilter = document.getElementById('event-filter');
                 const currentEvent = eventFilter.value;
                 eventFilter.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
@@ -305,11 +367,10 @@
 
             } catch (error) {
                 console.error("讀取資料失敗:", error);
-                tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-red-500">讀取失敗：${error.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-red-500">讀取失敗：${error.message}</td></tr>`;
             }
         }
 
-        // 渲染報名概覽表格
         function renderOverviewTable() {
             const tbody = document.getElementById('overview-tbody');
             const classFilter = document.getElementById('class-filter').value;
@@ -321,7 +382,7 @@
                 : globalStudentsData.filter(s => s.classCode === classFilter);
 
             if (filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="py-10 text-center text-gray-500">沒有找到學生資料</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="py-10 text-center text-gray-500">沒有找到學生資料</td></tr>';
                 return;
             }
 
@@ -348,12 +409,133 @@
                     <td class="py-3 px-4 text-center">${student.gender || '-'}</td>
                     <td class="py-3 px-4 text-center">${statusHtml}</td>
                     <td class="py-3 px-4 text-left max-w-xs">${eventsHtml}</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="openEditModal('${student.loginName}')" class="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded transition text-sm flex items-center justify-center mx-auto">
+                            <i class="fas fa-edit mr-1"></i> 編輯
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        // 渲染項目查詢表格
+        // ==========================================
+        //         新增：編輯學生報名功能
+        // ==========================================
+        
+        function openEditModal(loginName) {
+            // 尋找目標學生
+            currentEditingStudent = globalStudentsData.find(s => s.loginName === loginName);
+            if (!currentEditingStudent) return;
+
+            // 複製一份目前的報名項目陣列，避免直接修改原始資料
+            currentEditingEvents = currentEditingStudent.registeredEvents ? [...currentEditingStudent.registeredEvents] : [];
+
+            // 更新視窗內的學生資訊
+            document.getElementById('edit-student-name').innerText = currentEditingStudent.nameZh || currentEditingStudent.nameEn;
+            document.getElementById('edit-student-class').innerText = `${currentEditingStudent.classCode}班 (班號: ${currentEditingStudent.classNo}) | 性別: ${currentEditingStudent.gender}`;
+
+            // 渲染目前的項目標籤
+            renderModalEvents();
+
+            // 顯示視窗
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            currentEditingStudent = null;
+            currentEditingEvents = [];
+        }
+
+        function renderModalEvents() {
+            const container = document.getElementById('edit-current-events');
+            container.innerHTML = '';
+
+            if (currentEditingEvents.length === 0) {
+                container.innerHTML = '<span class="text-gray-400 text-sm italic">尚未報名任何項目</span>';
+                return;
+            }
+
+            currentEditingEvents.forEach(ev => {
+                const tag = document.createElement('div');
+                tag.className = 'bg-blue-100 text-blue-800 border border-blue-200 rounded-full px-3 py-1 text-sm flex items-center gap-2';
+                tag.innerHTML = `
+                    ${ev}
+                    <button onclick="removeEventFromModal('${ev}')" class="text-blue-500 hover:text-red-600 focus:outline-none">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                container.appendChild(tag);
+            });
+        }
+
+        function removeEventFromModal(eventName) {
+            currentEditingEvents = currentEditingEvents.filter(ev => ev !== eventName);
+            renderModalEvents();
+        }
+
+        function addEventToModal() {
+            if (!currentEditingStudent) return;
+
+            // 判斷性別前綴
+            const isMale = (currentEditingStudent.gender === 'M' || currentEditingStudent.gender === '男');
+            const genderPrefix = isMale ? '男子' : '女子';
+            
+            const grade = document.getElementById('edit-grade').value;
+            const eventName = document.getElementById('edit-event').value;
+            
+            const fullEventName = `${genderPrefix}${grade} ${eventName}`;
+
+            // 檢查是否已經報名過該項目
+            if (currentEditingEvents.includes(fullEventName)) {
+                alert("該學生已報名此項目！");
+                return;
+            }
+
+            // 加入陣列並重新渲染
+            currentEditingEvents.push(fullEventName);
+            renderModalEvents();
+        }
+
+        async function saveStudentEvents() {
+            if (!window.db || !currentEditingStudent) return;
+
+            const btn = document.getElementById('save-edit-btn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 儲存中...';
+            btn.disabled = true;
+
+            try {
+                // 使用 writeBatch 進行更新 (也可以用 updateDoc，但我們已將 batch 暴露到全域)
+                const batch = window.writeBatch(window.db);
+                const docRef = window.doc(window.db, "students", currentEditingStudent.loginName);
+                
+                batch.update(docRef, {
+                    registeredEvents: currentEditingEvents,
+                    updatedAt: new Date().toISOString()
+                });
+
+                await batch.commit();
+                
+                // 關閉視窗並重新讀取資料
+                closeEditModal();
+                await fetchStudentsData();
+                
+                // 顯示成功提示 (可選)
+                // alert("報名資料已成功更新！");
+
+            } catch (error) {
+                console.error("儲存失敗:", error);
+                alert("儲存失敗：" + error.message);
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+
+        // ==========================================
+
         function renderEventQueryTable() {
             const tbody = document.getElementById('event-query-tbody');
             const eventFilter = document.getElementById('event-filter').value;
@@ -389,7 +571,6 @@
             });
         }
 
-        // --- 隨機產生報名資料 (測試用) ---
         async function randomizeRegistrations() {
             if (!window.db || globalStudentsData.length === 0) {
                 alert("請先確保資料庫中有學生資料！");
@@ -416,15 +597,12 @@
                     chunk.forEach(student => {
                         const docRef = window.doc(window.db, "students", student.loginName);
                         
-                        // 判斷性別前綴
                         const isMale = (student.gender === 'M' || student.gender === '男');
                         const genderPrefix = isMale ? '男子' : '女子';
                         
-                        // 隨機分配組別 (甲、乙、丙)
                         const grades = ['甲組', '乙組', '丙組'];
                         const grade = grades[Math.floor(Math.random() * grades.length)];
                         
-                        // 隨機挑選 1~3 個項目
                         const numEvents = Math.floor(Math.random() * 3) + 1;
                         let shuffledEvents = [...allEvents].sort(() => 0.5 - Math.random());
                         let selectedEvents = shuffledEvents.slice(0, numEvents).map(ev => `${genderPrefix}${grade} ${ev}`);
@@ -440,7 +618,7 @@
                 }
 
                 alert("✅ 隨機報名資料產生完成！");
-                fetchStudentsData(); // 重新載入畫面
+                fetchStudentsData(); 
 
             } catch (error) {
                 console.error("隨機產生失敗:", error);
@@ -451,7 +629,6 @@
             }
         }
 
-        // --- CSV 處理 (保持不變) ---
         function getBibNumber(className, classNo) {
             if (!className || !classNo) return "";
             const formStr = className.charAt(0);
@@ -525,7 +702,7 @@
                             logStatus(`已寫入 ${processedCount} 筆...`);
                         }
                         alert("匯入成功！");
-                        fetchStudentsData(); // 匯入完自動重整表格
+                        fetchStudentsData(); 
                     } catch (error) {
                         alert("上傳失敗：" + error.message);
                     } finally {
