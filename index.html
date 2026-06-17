@@ -9,6 +9,29 @@
     <style>
         body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
         .hidden { display: none !important; }
+        
+        /* 列印專用樣式 */
+        @media print {
+            body { background-color: white; margin: 0; padding: 0; }
+            /* 隱藏所有非列印區域 */
+            body > *:not(#print-area) { display: none !important; }
+            
+            #print-area {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                background: white;
+                font-family: 'Times New Roman', 'MingLiU', serif; /* 仿照正式文件的字體 */
+            }
+            
+            .print-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; }
+            .print-table th, .print-table td { border: 1px solid black; padding: 8px 4px; }
+            .print-table th { font-weight: normal; }
+            
+            @page { size: A4 portrait; margin: 1.5cm; }
+        }
     </style>
 </head>
 <body>
@@ -44,11 +67,10 @@
             </button>
         </div>
 
-        <!-- 學生介面 -->
+        <!-- 學生介面 (保持不變) -->
         <div id="view-student" class="hidden">
             <div class="bg-white p-6 rounded-xl shadow-md mb-6">
                 <h2 class="text-2xl font-bold mb-4 border-b pb-3 text-blue-800">運動員報名表</h2>
-                
                 <!-- 學生資料 -->
                 <div class="bg-blue-50 p-4 rounded-lg grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-gray-800 border border-blue-100">
                     <div><span class="text-gray-500 text-sm block">姓名</span> <strong id="stu-name" class="text-lg">陳小明</strong></div>
@@ -59,10 +81,7 @@
 
                 <div class="mb-6 bg-gray-50 p-4 rounded-lg border">
                     <label class="block text-gray-800 font-bold mb-2">參賽組別 (可向上挑戰，不可降組)：</label>
-                    <select id="stu-grade-select" class="w-full md:w-1/2 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 bg-white">
-                        <!-- 動態生成 -->
-                    </select>
-                    <p class="text-sm text-gray-500 mt-2"><i class="fas fa-info-circle"></i> 系統已根據章程 (丙組:2012或以後, 乙組:2010或以後) 計算您的資格。</p>
+                    <select id="stu-grade-select" class="w-full md:w-1/2 border border-gray-300 rounded-lg px-3 py-2 bg-white"></select>
                 </div>
 
                 <div class="mb-6">
@@ -73,7 +92,6 @@
                         <label class="flex items-center space-x-2 bg-white border p-2 rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" class="track-cb w-4 h-4 text-blue-600" value="400m"> <span>400m</span></label>
                         <label class="flex items-center space-x-2 bg-white border p-2 rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" class="track-cb w-4 h-4 text-blue-600" value="800m"> <span>800m</span></label>
                         <label class="flex items-center space-x-2 bg-white border p-2 rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" class="track-cb w-4 h-4 text-blue-600" value="1500m"> <span>1500m</span></label>
-                        <label class="flex items-center space-x-2 bg-white border p-2 rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" class="track-cb w-4 h-4 text-blue-600" value="100m hurdle"> <span>100m 跨欄</span></label>
                     </div>
                 </div>
 
@@ -92,36 +110,16 @@
                 <!-- 工作人員區塊 -->
                 <div id="helper-section" class="mb-6 p-5 bg-yellow-50 border border-yellow-300 rounded-lg hidden shadow-sm">
                     <h3 class="text-lg font-bold text-yellow-800 mb-2"><i class="fas fa-hands-helping mr-2"></i>大會工作人員報名</h3>
-                    <p class="text-sm text-yellow-700 mb-4">由於您未報名任何田徑項目，必須報名成為工作人員 (可為班級增加 2 分累積分)。</p>
-                    <select id="helper-select" class="w-full md:w-1/2 border border-yellow-400 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <select id="helper-select" class="w-full md:w-1/2 border border-yellow-400 rounded-lg px-3 py-2 bg-white">
                         <option value="">請選擇工作崗位...</option>
                         <option value="司令台">司令台</option>
                         <option value="跳高裁判員">跳高裁判員</option>
-                        <option value="跳遠裁判員">跳遠裁判員</option>
-                        <option value="鉛球裁判員">鉛球裁判員</option>
-                        <option value="標槍/壘球裁判員">標槍 / 壘球裁判員</option>
-                        <option value="鐵餅裁判員">鐵餅裁判員</option>
-                        <option value="召集處">召集處</option>
-                        <option value="司線員">司線員</option>
-                        <option value="紀錄員">紀錄員</option>
-                        <option value="計時員">計時員</option>
-                        <option value="終點裁判員">終點裁判員</option>
-                        <option value="彎道裁判員">彎道裁判員</option>
-                        <option value="獎品">獎品</option>
                         <option value="攝影" class="font-bold text-blue-600">攝影 (只限校園視聽同學)</option>
                     </select>
                 </div>
 
-                <div class="flex flex-col sm:flex-row justify-between items-center bg-gray-100 p-4 rounded-lg border mt-8">
-                    <div class="text-sm text-gray-700 mb-4 sm:mb-0">
-                        目前已選：<span id="track-count" class="font-bold text-blue-600 text-lg mx-1">0</span> 徑賽 / 
-                        <span id="field-count" class="font-bold text-green-600 text-lg mx-1">0</span> 田賽
-                        <br>
-                        <span class="text-xs text-gray-500">(規則：最多報名三項，必須為「兩徑一田」或「兩田一徑」)</span>
-                    </div>
-                    <button onclick="submitRegistration()" class="w-full sm:w-auto bg-blue-800 hover:bg-blue-900 text-white font-bold py-3 px-8 rounded-lg transition shadow-md">
-                        提交報名
-                    </button>
+                <div class="flex justify-end bg-gray-100 p-4 rounded-lg border mt-8">
+                    <button onclick="submitRegistration()" class="bg-blue-800 hover:bg-blue-900 text-white font-bold py-3 px-8 rounded-lg shadow-md">提交報名</button>
                 </div>
             </div>
         </div>
@@ -133,113 +131,106 @@
                 <button onclick="switchAdminTab('tab-upload')" class="admin-tab whitespace-nowrap px-6 py-3 font-bold text-blue-800 border-b-4 border-blue-800">上傳資料與設定</button>
                 <button onclick="switchAdminTab('tab-results')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent">輸入成績</button>
                 <button onclick="switchAdminTab('tab-scores')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent">總結算與計分</button>
+                <button onclick="switchAdminTab('tab-print')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-print mr-1"></i> 列印報告</button>
             </div>
 
             <!-- 上傳資料 Tab -->
             <div id="tab-upload" class="admin-content bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
-                <h2 class="text-xl font-bold mb-4 text-gray-800"><i class="fas fa-file-csv mr-2"></i>上傳學生名單 (CSV)</h2>
-                <div class="bg-blue-50 p-4 rounded border border-blue-100 mb-6">
-                    <h3 class="font-bold text-blue-800 mb-2">系統分組標準 (根據章程自動分配)</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div class="p-3 bg-white rounded shadow-sm border-l-4 border-red-500"><strong>甲組 (A):</strong> 沒有年齡限制</div>
-                        <div class="p-3 bg-white rounded shadow-sm border-l-4 border-yellow-500"><strong>乙組 (B):</strong> 2010年或以後出生</div>
-                        <div class="p-3 bg-white rounded shadow-sm border-l-4 border-green-500"><strong>丙組 (C):</strong> 2012年或以後出生</div>
-                    </div>
-                </div>
-                <input type="file" id="csv-file" accept=".csv" class="mb-4 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                <button onclick="processCSV()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded shadow transition">匯入資料</button>
+                <h2 class="text-xl font-bold mb-4 text-gray-800">上傳學生名單 (CSV)</h2>
+                <input type="file" id="csv-file" accept=".csv" class="mb-4 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700">
+                <button class="bg-green-600 text-white px-6 py-2 rounded shadow">匯入資料</button>
             </div>
 
             <!-- 輸入成績 Tab -->
             <div id="tab-results" class="admin-content hidden bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
-                <h2 class="text-xl font-bold mb-4 text-gray-800"><i class="fas fa-stopwatch mr-2"></i>輸入比賽成績</h2>
-                <p class="text-gray-600 mb-6 text-sm">請於比賽完成後輸入成績，系統將根據章程自動轉換為班際及個人積分。</p>
-                
+                <h2 class="text-xl font-bold mb-4 text-gray-800">輸入比賽成績</h2>
                 <div class="bg-gray-50 p-5 rounded-lg border mb-6">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                        <div>
-                            <label class="block text-sm font-bold mb-1">項目</label>
-                            <select class="w-full border rounded p-2"><option>男子甲組 100m</option><option>女子乙組 跳遠</option></select>
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+                        <div class="col-span-2">
+                            <label class="block text-sm font-bold mb-1">學生班別及班號 (自動計算號布)</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="input-class" placeholder="班別 (例: 5C)" class="w-1/2 border rounded p-2" onkeyup="updateBibPreview()">
+                                <input type="number" id="input-classno" placeholder="班號 (例: 24)" class="w-1/2 border rounded p-2" onkeyup="updateBibPreview()">
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-bold mb-1">學生班別/姓名</label>
-                            <input type="text" placeholder="例如: 3A 陳小明" class="w-full border rounded p-2">
+                            <label class="block text-sm font-bold mb-1 text-blue-800">系統生成號碼布</label>
+                            <input type="text" id="preview-bib" readonly class="w-full border border-blue-300 bg-blue-50 rounded p-2 font-bold text-blue-800" placeholder="例如: 5324">
                         </div>
                         <div>
-                            <label class="block text-sm font-bold mb-1">名次/狀態</label>
+                            <label class="block text-sm font-bold mb-1">名次</label>
                             <select class="w-full border rounded p-2">
-                                <option value="1">第 1 名 (金牌)</option>
-                                <option value="2">第 2 名 (銀牌)</option>
-                                <option value="3">第 3 名 (銅牌)</option>
-                                <option value="4">第 4 名</option>
-                                <option value="5">第 5 名</option>
-                                <option value="6">第 6 名</option>
-                                <option value="7">第 7 名</option>
-                                <option value="8">第 8 名</option>
-                                <option value="absent">無故棄權 (扣分)</option>
+                                <option value="1">第 1 名</option>
+                                <option value="2">第 2 名</option>
+                                <option value="3">第 3 名</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-bold mb-1">破紀錄</label>
-                            <label class="flex items-center mt-2 cursor-pointer">
-                                <input type="checkbox" class="w-5 h-5 text-blue-600 mr-2"> 是 (額外+2分)
-                            </label>
+                            <label class="block text-sm font-bold mb-1">成績</label>
+                            <input type="text" placeholder="例: 2m16.51s" class="w-full border rounded p-2">
                         </div>
                     </div>
-                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded shadow transition">儲存成績並計分</button>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded shadow transition">儲存成績</button>
                 </div>
             </div>
 
             <!-- 總結算 Tab -->
             <div id="tab-scores" class="admin-content hidden bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
-                <h2 class="text-xl font-bold mb-4 text-gray-800"><i class="fas fa-trophy mr-2"></i>成績總結算</h2>
-                
-                <!-- 計分規則面板 -->
-                <div class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6">
-                    <h3 class="font-bold text-yellow-800 mb-2">系統計分演算法 (依據章程第四項)</h3>
-                    <ul class="list-disc list-inside text-sm text-yellow-900 space-y-1">
-                        <li><strong>底分：</strong> 每報名一單項得 1 分。</li>
-                        <li><strong>棄權扣分：</strong> 無故棄權者，所屬班別扣 2 分。</li>
-                        <li><strong>名次得分：</strong> 第1至8名依次獲得 9, 7, 6, 5, 4, 3, 2, 1 分。</li>
-                        <li><strong>破紀錄：</strong> 額外獎勵 2 分。</li>
-                        <li><strong>工作人員：</strong> 擔任大會委任場地工作，所屬班別加 2 分。</li>
-                        <li><strong>接力賽：</strong> 班際接力按名次得 18, 14, 12 分。</li>
-                    </ul>
+                <h2 class="text-xl font-bold mb-4 text-gray-800">成績總結算預覽</h2>
+                <p class="text-gray-500">此頁面顯示各班際積分及級別總分...</p>
+            </div>
+
+            <!-- 列印報告 Tab -->
+            <div id="tab-print" class="admin-content hidden bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
+                <div class="flex justify-between items-center mb-6 border-b pb-4">
+                    <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-file-pdf mr-2"></i>列印成績公佈 (PDF)</h2>
+                    <button onclick="window.print()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded shadow transition font-bold flex items-center">
+                        <i class="fas fa-print mr-2"></i> 列印 / 儲存為 PDF
+                    </button>
                 </div>
+                
+                <p class="text-sm text-gray-500 mb-4">提示：點擊上方按鈕後，請在瀏覽器列印設定中選擇「儲存為 PDF」，並確保紙張大小為 A4 直向 (Portrait)。</p>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="border rounded-lg overflow-hidden">
-                        <div class="bg-blue-800 text-white font-bold p-3">全校總累積分 (聖母院盃) 預覽</div>
-                        <table class="w-full text-left border-collapse">
+                <!-- 預覽縮圖區域 (僅網頁可見) -->
+                <div class="border-2 border-dashed border-gray-300 p-4 bg-gray-100 flex justify-center overflow-auto">
+                    <div class="bg-white shadow-lg border p-8 w-[800px] transform scale-90 origin-top">
+                        <div class="text-center mb-6 font-serif">
+                            <h1 class="text-2xl font-bold">Notre Dame College</h1>
+                            <h2 class="text-xl font-bold">Sports Day (2025)</h2>
+                            <h3 class="text-lg">15/12/2025</h3>
+                            <h3 class="text-lg italic mt-2">決賽日項目優勝者</h3>
+                        </div>
+                        <div class="flex justify-between mb-2 text-sm font-serif">
+                            <div>
+                                <p class="mb-1">場號: <span class="ml-8">72</span></p>
+                                <p>第幾組: <span class="ml-4">全部</span></p>
+                            </div>
+                            <div>
+                                <p class="mb-1">項目簡稱: <span class="ml-4">05 BA 800m</span></p>
+                                <p>項目名稱: <span class="ml-4">800m Boys A Grade</span></p>
+                            </div>
+                            <div>
+                                <p class="mb-1">組別: <span class="ml-4">甲</span></p>
+                                <p>性別: <span class="ml-4">男</span></p>
+                            </div>
+                        </div>
+                        <table class="w-full border-collapse border border-black text-sm text-center font-serif">
                             <thead>
-                                <tr class="bg-gray-100 text-gray-600 text-sm">
-                                    <th class="p-3 border-b">排名</th>
-                                    <th class="p-3 border-b">班別</th>
-                                    <th class="p-3 border-b">總分</th>
+                                <tr class="bg-gray-50">
+                                    <th class="border border-black p-2">名次</th>
+                                    <th class="border border-black p-2">班別/班號</th>
+                                    <th class="border border-black p-2">參加學生姓名</th>
+                                    <th class="border border-black p-2">號布</th>
+                                    <th class="border border-black p-2">學社</th>
+                                    <th class="border border-black p-2">成績及記錄<br>(** 新記錄)</th>
+                                    <th class="border border-black p-2">標準/紀錄/<br>參與獎分</th>
+                                    <th class="border border-black p-2">名次分</th>
+                                    <th class="border border-black p-2">缺席<br>扣分</th>
+                                    <th class="border border-black p-2">總分</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr><td class="p-3 border-b">1</td><td class="p-3 border-b font-bold text-blue-800">4A</td><td class="p-3 border-b">128</td></tr>
-                                <tr><td class="p-3 border-b">2</td><td class="p-3 border-b font-bold text-blue-800">5B</td><td class="p-3 border-b">115</td></tr>
-                                <tr><td class="p-3 border-b">3</td><td class="p-3 border-b font-bold text-blue-800">3C</td><td class="p-3 border-b">98</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="border rounded-lg overflow-hidden">
-                        <div class="bg-green-700 text-white font-bold p-3">各級冠軍盃預覽</div>
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-gray-100 text-gray-600 text-sm">
-                                    <th class="p-3 border-b">級別</th>
-                                    <th class="p-3 border-b">領先班別</th>
-                                    <th class="p-3 border-b">分數</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td class="p-3 border-b">中一級</td><td class="p-3 border-b font-bold">1B</td><td class="p-3 border-b">85</td></tr>
-                                <tr><td class="p-3 border-b">中二級</td><td class="p-3 border-b font-bold">2A</td><td class="p-3 border-b">92</td></tr>
-                                <tr><td class="p-3 border-b">中三級</td><td class="p-3 border-b font-bold">3C</td><td class="p-3 border-b">98</td></tr>
+                            <tbody id="preview-table-body">
+                                <!-- 由 JS 載入 -->
                             </tbody>
                         </table>
                     </div>
@@ -249,27 +240,64 @@
 
     </div>
 
+    <!-- 隱藏的列印專用區域 (只有在 window.print() 時才會顯示並佔滿全螢幕) -->
+    <div id="print-area" class="hidden">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h1 style="font-size: 24px; font-weight: bold; margin: 0;">Notre Dame College</h1>
+            <h2 style="font-size: 20px; font-weight: bold; margin: 5px 0;">Sports Day (2025)</h2>
+            <h3 style="font-size: 16px; margin: 5px 0;">15/12/2025</h3>
+            <h3 style="font-size: 18px; font-style: italic; margin-top: 15px;">決賽日項目優勝者</h3>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+            <div>
+                <p style="margin: 2px 0;">場號: <span style="margin-left: 30px;">72</span></p>
+                <p style="margin: 2px 0;">第幾組: <span style="margin-left: 15px;">全部</span></p>
+            </div>
+            <div>
+                <p style="margin: 2px 0;">項目簡稱: <span style="margin-left: 15px;">05 BA 800m</span></p>
+                <p style="margin: 2px 0;">項目名稱: <span style="margin-left: 15px;">800m Boys A Grade</span></p>
+            </div>
+            <div>
+                <p style="margin: 2px 0;">組別: <span style="margin-left: 15px;">甲</span></p>
+                <p style="margin: 2px 0;">性別: <span style="margin-left: 15px;">男</span></p>
+            </div>
+        </div>
+
+        <table class="print-table">
+            <thead>
+                <tr>
+                    <th>名次</th>
+                    <th>班別/班號</th>
+                    <th>參加學生姓名</th>
+                    <th>號布</th>
+                    <th>學社</th>
+                    <th>成績及記錄<br>(** 新記錄)</th>
+                    <th>標準/紀錄/<br>參與獎分</th>
+                    <th>名次分</th>
+                    <th>缺席<br>扣分</th>
+                    <th>總分</th>
+                </tr>
+            </thead>
+            <tbody id="real-print-table-body">
+                <!-- 由 JS 載入 -->
+            </tbody>
+        </table>
+    </div>
+
     <script>
         // --- 核心邏輯與狀態管理 ---
         let currentUser = null;
         
-        // 模擬學生資料 (測試用：2012年出生 -> 丙組)
-        let mockStudentData = {
-            id: 's2025001',
-            name: '陳小明',
-            class: '3A',
-            gender: '男',
-            birthYear: 2012 
-        };
+        // 模擬學生資料
+        let mockStudentData = { id: 's2025001', name: '陳小明', class: '3A', gender: '男', birthYear: 2012 };
 
-        // 根據新章程判斷組別邏輯
         function calculateDefaultGrade(year) {
-            if (year >= 2012) return 'C'; // 2012或以後 -> 丙組
-            if (year >= 2010) return 'B'; // 2010或以後 -> 乙組
-            return 'A';                   // 沒有年齡限制 -> 甲組
+            if (year >= 2012) return 'C'; 
+            if (year >= 2010) return 'B'; 
+            return 'A';                   
         }
 
-        // 登入邏輯
         function simulateLogin(role) {
             document.getElementById('view-login').classList.add('hidden');
             document.getElementById('nav-user-info').classList.remove('hidden');
@@ -283,6 +311,7 @@
                 currentUser = { role: 'admin', name: '管理員' };
                 document.getElementById('current-user-name').innerText = `管理員`;
                 document.getElementById('view-admin').classList.remove('hidden');
+                loadMockPrintData(); // 載入列印示範資料
             }
         }
 
@@ -292,119 +321,46 @@
             document.getElementById('view-student').classList.add('hidden');
             document.getElementById('view-admin').classList.add('hidden');
             document.getElementById('nav-user-info').classList.add('hidden');
-            
-            // 重置表單
-            document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-                cb.checked = false;
-                cb.disabled = false;
-            });
-            document.getElementById('helper-select').value = "";
         }
 
         // --- 學生報名介面邏輯 ---
         function initStudentDashboard() {
-            document.getElementById('stu-name').innerText = currentUser.name;
-            document.getElementById('stu-class').innerText = currentUser.class;
-            document.getElementById('stu-gender').innerText = currentUser.gender;
-            document.getElementById('stu-year').innerText = currentUser.birthYear;
-
-            // 處理組別選擇 (向上挑戰，不可降組)
             const defaultGrade = calculateDefaultGrade(currentUser.birthYear);
             const select = document.getElementById('stu-grade-select');
             select.innerHTML = ''; 
-            
-            const options = [];
-            if (defaultGrade === 'C') {
-                options.push({val: 'C', text: '丙組 (C Grade) - 預設'});
-                options.push({val: 'B', text: '乙組 (B Grade) - 向上挑戰'});
-                options.push({val: 'A', text: '甲組 (A Grade) - 向上挑戰'});
-            } else if (defaultGrade === 'B') {
-                options.push({val: 'B', text: '乙組 (B Grade) - 預設'});
-                options.push({val: 'A', text: '甲組 (A Grade) - 向上挑戰'});
-            } else {
-                options.push({val: 'A', text: '甲組 (A Grade) - 預設'});
-            }
-
+            const options = defaultGrade === 'C' ? ['C','B','A'] : (defaultGrade === 'B' ? ['B','A'] : ['A']);
             options.forEach(opt => {
                 const el = document.createElement('option');
-                el.value = opt.val;
-                el.innerText = opt.text;
+                el.value = opt; el.innerText = `${opt}組`;
                 select.appendChild(el);
             });
-
-            // 綁定 Checkbox 事件
-            const trackCbs = document.querySelectorAll('.track-cb');
-            const fieldCbs = document.querySelectorAll('.field-cb');
-            
-            const validateSelection = () => {
-                let trackCount = document.querySelectorAll('.track-cb:checked').length;
-                let fieldCount = document.querySelectorAll('.field-cb:checked').length;
-                let total = trackCount + fieldCount;
-
-                document.getElementById('track-count').innerText = trackCount;
-                document.getElementById('field-count').innerText = fieldCount;
-
-                // 規則：最多3項 (2徑1田 或 2田1徑)
-                trackCbs.forEach(cb => {
-                    if (!cb.checked) {
-                        cb.disabled = (trackCount >= 2) || (total >= 3);
-                    }
-                });
-
-                fieldCbs.forEach(cb => {
-                    if (!cb.checked) {
-                        cb.disabled = (fieldCount >= 2) || (total >= 3);
-                    }
-                });
-
-                // 工作人員邏輯 (若無報名項目，強制顯示)
-                if (total === 0) {
-                    document.getElementById('helper-section').classList.remove('hidden');
-                } else {
-                    document.getElementById('helper-section').classList.add('hidden');
-                    document.getElementById('helper-select').value = ""; 
-                }
-            };
-
-            trackCbs.forEach(cb => cb.addEventListener('change', validateSelection));
-            fieldCbs.forEach(cb => cb.addEventListener('change', validateSelection));
-            
-            validateSelection();
         }
 
-        function submitRegistration() {
-            let trackCount = document.querySelectorAll('.track-cb:checked').length;
-            let fieldCount = document.querySelectorAll('.field-cb:checked').length;
-            let total = trackCount + fieldCount;
-            let helperRole = document.getElementById('helper-select').value;
+        // --- 號碼布計算邏輯 (Bib Number Logic) ---
+        function getBibNumber(className, classNo) {
+            if (!className || !classNo) return "";
+            
+            // 提取年級 (第1位) 和 班別字母 (第2位)
+            const formStr = className.charAt(0);
+            const letterStr = className.charAt(1);
+            
+            if (!formStr || !letterStr || isNaN(formStr)) return "";
+            
+            const letter = letterStr.toUpperCase();
+            // 將 A 轉為 1, B 轉為 2, C 轉為 3 (利用 ASCII code: A 是 65)
+            const letterNum = letter.charCodeAt(0) - 64; 
+            
+            // 班號補零至兩位數 (如 5 -> 05, 24 -> 24)
+            const paddedNum = String(classNo).padStart(2, '0');
+            
+            return `${formStr}${letterNum}${paddedNum}`;
+        }
 
-            if (total === 0 && helperRole === "") {
-                alert("您未有報名任何田徑項目，請選擇一項大會工作人員崗位！");
-                return;
-            }
-
-            if (helperRole === "攝影") {
-                if(!confirm("您選擇了「攝影」，請確認您是「校園視聽同學」的成員。是否繼續？")) {
-                    return;
-                }
-            }
-
-            let selectedGrade = document.getElementById('stu-grade-select').value;
-            let selectedTracks = Array.from(document.querySelectorAll('.track-cb:checked')).map(cb => cb.value);
-            let selectedFields = Array.from(document.querySelectorAll('.field-cb:checked')).map(cb => cb.value);
-
-            let confirmMsg = `請確認您的報名資料：\n\n參賽組別：${selectedGrade}組\n`;
-            if (total > 0) {
-                confirmMsg += `徑賽項目：${selectedTracks.join(', ') || '無'}\n`;
-                confirmMsg += `田賽項目：${selectedFields.join(', ') || '無'}\n`;
-            } else {
-                confirmMsg += `工作人員：${helperRole}\n`;
-            }
-
-            if(confirm(confirmMsg)) {
-                alert("報名成功！資料已提交至系統。");
-                // 實際環境中，此處會呼叫後端 API 儲存資料
-            }
+        function updateBibPreview() {
+            const cls = document.getElementById('input-class').value;
+            const no = document.getElementById('input-classno').value;
+            const bib = getBibNumber(cls, no);
+            document.getElementById('preview-bib').value = bib;
         }
 
         // --- 管理員介面邏輯 ---
@@ -413,21 +369,47 @@
                 btn.classList.remove('font-bold', 'text-blue-800', 'border-b-4', 'border-blue-800');
                 btn.classList.add('text-gray-500', 'border-transparent');
             });
-            event.target.classList.remove('text-gray-500', 'border-transparent');
-            event.target.classList.add('font-bold', 'text-blue-800', 'border-b-4', 'border-blue-800');
+            event.currentTarget.classList.remove('text-gray-500', 'border-transparent');
+            event.currentTarget.classList.add('font-bold', 'text-blue-800', 'border-b-4', 'border-blue-800');
 
             document.querySelectorAll('.admin-content').forEach(div => div.classList.add('hidden'));
             document.getElementById(tabId).classList.remove('hidden');
         }
 
-        function processCSV() {
-            const fileInput = document.getElementById('csv-file');
-            if (!fileInput.files.length) {
-                alert("請先選擇 CSV 檔案！");
-                return;
-            }
-            // 模擬讀取
-            alert("成功讀取學生資料！系統已根據 2010 及 2012 年份標準，自動為全校學生分配甲、乙、丙組預設資格。");
+        // --- 載入列印報表資料 (依照您提供的圖片數據) ---
+        function loadMockPrintData() {
+            const results = [
+                { rank: 1, class: '3A', classNo: 16, name: '林家佑', bib: '3116', house: '', time: '2m16.51s', base: '1.0', pts: '9.0', abs: '0.0', total: '10.0' },
+                { rank: 2, class: '2A', classNo: 1, name: '蔡承原', bib: '2101', house: '', time: '2m16.57s', base: '1.0', pts: '7.0', abs: '0.0', total: '8.0' },
+                { rank: 3, class: '5B', classNo: 6, name: '蔡金城', bib: '5206', house: '', time: '2m27.71s', base: '1.0', pts: '6.0', abs: '0.0', total: '7.0' },
+                { rank: 4, class: '4A', classNo: 8, name: '陳延宇', bib: '4108', house: '', time: '2m32.22s', base: '1.0', pts: '5.0', abs: '0.0', total: '6.0' },
+                { rank: 5, class: '5C', classNo: 4, name: '陳柏軒', bib: '5304', house: '', time: '2m39.76s', base: '1.0', pts: '4.0', abs: '0.0', total: '5.0' },
+                { rank: 6, class: '6B', classNo: 5, name: '蔡彥匡', bib: '6205', house: '', time: '2m45.62s', base: '1.0', pts: '3.0', abs: '0.0', total: '4.0' },
+                { rank: 7, class: '3A', classNo: 5, name: '陳宇泓', bib: '3105', house: '', time: '2m46.84s', base: '1.0', pts: '2.0', abs: '0.0', total: '3.0' },
+                { rank: 8, class: '5B', classNo: 18, name: '林成杰', bib: '5218', house: '', time: '2m53.13s', base: '1.0', pts: '1.0', abs: '0.0', total: '2.0' },
+                { rank: 9, class: '5C', classNo: 9, name: '關健宇', bib: '5309', house: '', time: '3m00.59s', base: '1.0', pts: '0.0', abs: '0.0', total: '1.0' }
+            ];
+
+            let html = '';
+            results.forEach(r => {
+                html += `
+                <tr>
+                    <td class="border border-black p-2">${r.rank}</td>
+                    <td class="border border-black p-2">${r.class} &nbsp;&nbsp; ${r.classNo}</td>
+                    <td class="border border-black p-2 text-left pl-4">${r.name}</td>
+                    <td class="border border-black p-2">${r.bib}</td>
+                    <td class="border border-black p-2">${r.house}</td>
+                    <td class="border border-black p-2">${r.time}</td>
+                    <td class="border border-black p-2 text-right pr-4">${r.base}</td>
+                    <td class="border border-black p-2 text-right pr-4">${r.pts}</td>
+                    <td class="border border-black p-2 text-right pr-4">${r.abs}</td>
+                    <td class="border border-black p-2 text-right pr-4">${r.total}</td>
+                </tr>`;
+            });
+
+            // 同時寫入網頁預覽區和隱藏的真實列印區
+            document.getElementById('preview-table-body').innerHTML = html;
+            document.getElementById('real-print-table-body').innerHTML = html;
         }
     </script>
 </body>
