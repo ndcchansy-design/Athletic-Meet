@@ -306,9 +306,7 @@
                     <label class="block text-sm font-bold text-blue-800 mb-2">新增比賽項目：</label>
                     <div class="flex flex-col sm:flex-row gap-2">
                         <select id="edit-grade" class="border border-gray-300 rounded px-3 py-2 bg-white flex-1 focus:outline-none focus:border-blue-500">
-                            <option value="甲組">甲組</option>
-                            <option value="乙組">乙組</option>
-                            <option value="丙組">丙組</option>
+                            <!-- 選項將由 JS 動態生成 (根據學生年齡限制) -->
                         </select>
                         <select id="edit-event" class="border border-gray-300 rounded px-3 py-2 bg-white flex-1 focus:outline-none focus:border-blue-500">
                             <!-- 選項由 JS 動態生成 (根據性別與組別) -->
@@ -878,12 +876,33 @@
             
             document.getElementById('edit-student-dob').innerHTML = `<i class="fas fa-birthday-cake mr-1"></i>出生日期: ${dobText} <span class="text-blue-600 font-bold ml-2">(系統建議: ${suggestedGrade})</span>`;
 
+            // 動態生成可選組別 (限制不可降組)
             const gradeSelect = document.getElementById('edit-grade');
+            gradeSelect.innerHTML = '';
+            const gradeOptions = [];
+            
+            if (suggestedGrade === '丙組') {
+                gradeOptions.push('丙組', '乙組', '甲組');
+            } else if (suggestedGrade === '乙組') {
+                gradeOptions.push('乙組', '甲組');
+            } else {
+                gradeOptions.push('甲組');
+            }
+
+            gradeOptions.forEach(opt => {
+                const el = document.createElement('option');
+                el.value = opt;
+                el.innerText = opt;
+                gradeSelect.appendChild(el);
+            });
+
+            // 決定預設選取的組別 (如果已有報名項目，以該項目組別為準)
             if (currentEditingEvents.length > 0) {
                 const firstEvent = currentEditingEvents[0];
-                if (firstEvent.includes('甲組')) gradeSelect.value = '甲組';
-                else if (firstEvent.includes('乙組')) gradeSelect.value = '乙組';
-                else if (firstEvent.includes('丙組')) gradeSelect.value = '丙組';
+                if (firstEvent.includes('甲組') && gradeOptions.includes('甲組')) gradeSelect.value = '甲組';
+                else if (firstEvent.includes('乙組') && gradeOptions.includes('乙組')) gradeSelect.value = '乙組';
+                else if (firstEvent.includes('丙組') && gradeOptions.includes('丙組')) gradeSelect.value = '丙組';
+                else gradeSelect.value = gradeOptions[0]; // 防呆
             } else {
                 gradeSelect.value = suggestedGrade;
             }
@@ -899,6 +918,7 @@
         function renderAdminEditDropdown() {
             if (!currentEditingStudent) return;
             const grade = document.getElementById('edit-grade').value;
+            // 這裡會自動根據性別與組別過濾出合法的項目 (例如男甲不會有擲壘球)
             const validEvents = getValidEvents(currentEditingStudent.gender, grade);
             const select = document.getElementById('edit-event');
 
