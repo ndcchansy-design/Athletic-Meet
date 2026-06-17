@@ -104,7 +104,7 @@
                                 <th class="py-3 px-4 text-center">性別</th>
                                 <th class="py-3 px-4 text-center">狀態</th>
                                 <th class="py-3 px-4 text-left">已報名項目</th>
-                                <th class="py-3 px-4 text-center">操作</th> <!-- 新增操作欄位 -->
+                                <th class="py-3 px-4 text-center">操作</th>
                             </tr>
                         </thead>
                         <tbody id="overview-tbody" class="text-gray-600 text-sm font-light">
@@ -191,14 +191,25 @@
             
             <div class="p-6">
                 <!-- 學生基本資訊 -->
-                <div class="mb-5 flex items-center gap-4 border-b pb-4">
+                <div class="mb-4 flex items-center gap-4 border-b pb-4">
                     <div class="bg-blue-100 text-blue-800 rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl">
                         <i class="fas fa-user"></i>
                     </div>
                     <div>
                         <div id="edit-student-name" class="text-lg font-bold text-gray-800"></div>
                         <div id="edit-student-class" class="text-sm text-gray-500"></div>
+                        <div id="edit-student-dob" class="text-sm text-gray-600 mt-1"></div>
                     </div>
+                </div>
+
+                <!-- 報名規則提示 -->
+                <div class="bg-yellow-50 border border-yellow-200 p-3 rounded-lg mb-4 text-sm text-yellow-800">
+                    <p class="font-bold mb-1"><i class="fas fa-exclamation-triangle mr-1"></i> 報名規則限制：</p>
+                    <ul class="list-disc list-inside space-y-1 ml-1 text-xs">
+                        <li>所有報名項目必須為<strong>同一組別</strong>（不可跨組）。</li>
+                        <li>每位學生最多報名 <strong>3 個項目</strong>。</li>
+                        <li>最多 <strong>兩徑一田</strong> 或 <strong>兩田一徑</strong>（單一類別最多 2 項）。</li>
+                    </ul>
                 </div>
 
                 <!-- 目前已報名項目 -->
@@ -275,6 +286,8 @@
     <script>
         // 全域變數
         let globalStudentsData = [];
+        
+        // 定義徑賽與田賽
         const trackEvents = ['100M', '200M', '400M', '800M', '1500M'];
         const fieldEvents = ['跳遠', '跳高', '鉛球', '鐵餅', '標槍'];
         const allEvents = [...trackEvents, ...fieldEvents];
@@ -286,9 +299,18 @@
         // 初始化頁面時，將所有項目加入到編輯視窗的下拉選單中
         window.onload = () => {
             const editEventSelect = document.getElementById('edit-event');
-            allEvents.forEach(ev => {
+            
+            editEventSelect.innerHTML += `<optgroup label="徑賽 (Track)">`;
+            trackEvents.forEach(ev => {
                 editEventSelect.innerHTML += `<option value="${ev}">${ev}</option>`;
             });
+            editEventSelect.innerHTML += `</optgroup>`;
+            
+            editEventSelect.innerHTML += `<optgroup label="田賽 (Field)">`;
+            fieldEvents.forEach(ev => {
+                editEventSelect.innerHTML += `<option value="${ev}">${ev}</option>`;
+            });
+            editEventSelect.innerHTML += `</optgroup>`;
         };
 
         function simulateLogin(role) {
@@ -420,25 +442,48 @@
         }
 
         // ==========================================
-        //         新增：編輯學生報名功能
+        //         編輯學生報名功能與規則驗證
         // ==========================================
         
         function openEditModal(loginName) {
-            // 尋找目標學生
             currentEditingStudent = globalStudentsData.find(s => s.loginName === loginName);
             if (!currentEditingStudent) return;
 
-            // 複製一份目前的報名項目陣列，避免直接修改原始資料
             currentEditingEvents = currentEditingStudent.registeredEvents ? [...currentEditingStudent.registeredEvents] : [];
 
-            // 更新視窗內的學生資訊
             document.getElementById('edit-student-name').innerText = currentEditingStudent.nameZh || currentEditingStudent.nameEn;
             document.getElementById('edit-student-class').innerText = `${currentEditingStudent.classCode}班 (班號: ${currentEditingStudent.classNo}) | 性別: ${currentEditingStudent.gender}`;
 
-            // 渲染目前的項目標籤
-            renderModalEvents();
+            // 分析出生年份並給出建議組別
+            let dobText = currentEditingStudent.dob || '未知';
+            let suggestedGrade = '未知';
+            if (dobText !== '未知') {
+                const yearMatch = dobText.match(/\b(19|20)\d{2}\b/);
+                if (yearMatch) {
+                    const year = parseInt(yearMatch[0]);
+                    // 假設 2025/2026 學年標準 (可依學校實際情況調整)
+                    if (year >= 2012) suggestedGrade = '丙組';
+                    else if (year >= 2010) suggestedGrade = '乙組';
+                    else suggestedGrade = '甲組';
+                }
+            }
+            
+            document.getElementById('edit-student-dob').innerHTML = `
+                <i class="fas fa-birthday-cake mr-1"></i>出生日期: ${dobText} 
+                <span class="text-blue-600 font-bold ml-2">(系統建議: ${suggestedGrade})</span>
+            `;
 
-            // 顯示視窗
+            // 若已有報名項目，自動將下拉選單切換至該組別
+            if (currentEditingEvents.length > 0) {
+                const firstEvent = currentEditingEvents[0];
+                if (firstEvent.includes('甲組')) document.getElementById('edit-grade').value = '甲組';
+                else if (firstEvent.includes('乙組')) document.getElementById('edit-grade').value = '乙組';
+                else if (firstEvent.includes('丙組')) document.getElementById('edit-grade').value = '丙組';
+            } else if (suggestedGrade !== '未知') {
+                document.getElementById('edit-grade').value = suggestedGrade;
+            }
+
+            renderModalEvents();
             document.getElementById('edit-modal').classList.remove('hidden');
         }
 
@@ -458,11 +503,16 @@
             }
 
             currentEditingEvents.forEach(ev => {
+                // 判斷是徑賽還是田賽給予不同顏色標籤
+                const isTrack = trackEvents.some(t => ev.includes(t));
+                const colorClass = isTrack ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-green-100 text-green-800 border-green-200';
+                const icon = isTrack ? '<i class="fas fa-running mr-1"></i>' : '<i class="fas fa-dumbbell mr-1"></i>';
+
                 const tag = document.createElement('div');
-                tag.className = 'bg-blue-100 text-blue-800 border border-blue-200 rounded-full px-3 py-1 text-sm flex items-center gap-2';
+                tag.className = `${colorClass} border rounded-full px-3 py-1 text-sm flex items-center gap-2`;
                 tag.innerHTML = `
-                    ${ev}
-                    <button onclick="removeEventFromModal('${ev}')" class="text-blue-500 hover:text-red-600 focus:outline-none">
+                    ${icon} ${ev}
+                    <button onclick="removeEventFromModal('${ev}')" class="text-gray-500 hover:text-red-600 focus:outline-none ml-1">
                         <i class="fas fa-times"></i>
                     </button>
                 `;
@@ -478,22 +528,58 @@
         function addEventToModal() {
             if (!currentEditingStudent) return;
 
-            // 判斷性別前綴
             const isMale = (currentEditingStudent.gender === 'M' || currentEditingStudent.gender === '男');
             const genderPrefix = isMale ? '男子' : '女子';
-            
             const grade = document.getElementById('edit-grade').value;
             const eventName = document.getElementById('edit-event').value;
-            
             const fullEventName = `${genderPrefix}${grade} ${eventName}`;
 
-            // 檢查是否已經報名過該項目
+            // 規則 1: 檢查是否已報名
             if (currentEditingEvents.includes(fullEventName)) {
-                alert("該學生已報名此項目！");
+                alert("⚠️ 該學生已報名此項目！");
                 return;
             }
 
-            // 加入陣列並重新渲染
+            // 規則 2: 檢查組別一致性 (不可跨組)
+            if (currentEditingEvents.length > 0) {
+                const firstEvent = currentEditingEvents[0];
+                const currentGrade = firstEvent.includes('甲組') ? '甲組' : (firstEvent.includes('乙組') ? '乙組' : '丙組');
+                if (grade !== currentGrade) {
+                    alert(`❌ 報名規則錯誤：\n該學生已報名「${currentGrade}」的項目。\n所有比賽必須為同一組別，不可跨組報名！`);
+                    // 自動幫管理員切換回正確的組別
+                    document.getElementById('edit-grade').value = currentGrade;
+                    return;
+                }
+            }
+
+            // 規則 3: 檢查「兩田一徑」或「兩徑一田」規則 (最多3項，單類最多2項)
+            let trackCount = 0;
+            let fieldCount = 0;
+
+            currentEditingEvents.forEach(ev => {
+                if (trackEvents.some(t => ev.includes(t))) trackCount++;
+                if (fieldEvents.some(f => ev.includes(f))) fieldCount++;
+            });
+
+            const isNewTrack = trackEvents.includes(eventName);
+            const isNewField = fieldEvents.includes(eventName);
+
+            if (currentEditingEvents.length >= 3) {
+                alert("❌ 報名規則錯誤：\n每位學生最多只能報名 3 個項目！");
+                return;
+            }
+
+            if (isNewTrack && trackCount >= 2) {
+                alert("❌ 報名規則錯誤：\n每位學生最多只能報名 2 個「徑賽」項目！\n(最多兩徑一田或兩田一徑)");
+                return;
+            }
+
+            if (isNewField && fieldCount >= 2) {
+                alert("❌ 報名規則錯誤：\n每位學生最多只能報名 2 個「田賽」項目！\n(最多兩徑一田或兩田一徑)");
+                return;
+            }
+
+            // 通過所有驗證，加入陣列並重新渲染
             currentEditingEvents.push(fullEventName);
             renderModalEvents();
         }
@@ -507,7 +593,6 @@
             btn.disabled = true;
 
             try {
-                // 使用 writeBatch 進行更新 (也可以用 updateDoc，但我們已將 batch 暴露到全域)
                 const batch = window.writeBatch(window.db);
                 const docRef = window.doc(window.db, "students", currentEditingStudent.loginName);
                 
@@ -518,12 +603,8 @@
 
                 await batch.commit();
                 
-                // 關閉視窗並重新讀取資料
                 closeEditModal();
                 await fetchStudentsData();
-                
-                // 顯示成功提示 (可選)
-                // alert("報名資料已成功更新！");
 
             } catch (error) {
                 console.error("儲存失敗:", error);
@@ -571,6 +652,7 @@
             });
         }
 
+        // 修正後的隨機產生器，確保產生的資料符合「同組別」與「兩徑一田/兩田一徑」規則
         async function randomizeRegistrations() {
             if (!window.db || globalStudentsData.length === 0) {
                 alert("請先確保資料庫中有學生資料！");
@@ -600,12 +682,27 @@
                         const isMale = (student.gender === 'M' || student.gender === '男');
                         const genderPrefix = isMale ? '男子' : '女子';
                         
+                        // 隨機決定一個組別 (確保所有項目同組)
                         const grades = ['甲組', '乙組', '丙組'];
                         const grade = grades[Math.floor(Math.random() * grades.length)];
                         
-                        const numEvents = Math.floor(Math.random() * 3) + 1;
-                        let shuffledEvents = [...allEvents].sort(() => 0.5 - Math.random());
-                        let selectedEvents = shuffledEvents.slice(0, numEvents).map(ev => `${genderPrefix}${grade} ${ev}`);
+                        // 隨機決定徑賽與田賽數量 (0~2)，確保符合規則
+                        let numTrack = Math.floor(Math.random() * 3); // 0, 1, 2
+                        let numField = Math.floor(Math.random() * 3); // 0, 1, 2
+                        
+                        // 總數不能超過3
+                        if (numTrack + numField > 3) {
+                            if (Math.random() > 0.5) numTrack--; else numField--;
+                        }
+                        // 確保至少有1項
+                        if (numTrack + numField === 0) {
+                            numTrack = 1;
+                        }
+
+                        let shuffledTrack = [...trackEvents].sort(() => 0.5 - Math.random()).slice(0, numTrack);
+                        let shuffledField = [...fieldEvents].sort(() => 0.5 - Math.random()).slice(0, numField);
+
+                        let selectedEvents = [...shuffledTrack, ...shuffledField].map(ev => `${genderPrefix}${grade} ${ev}`);
 
                         batch.update(docRef, {
                             registeredEvents: selectedEvents
@@ -617,7 +714,7 @@
                     console.log(`已隨機更新 ${processedCount} 筆...`);
                 }
 
-                alert("✅ 隨機報名資料產生完成！");
+                alert("✅ 隨機報名資料產生完成 (已符合賽事規則)！");
                 fetchStudentsData(); 
 
             } catch (error) {
