@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>香港中學陸運會報名系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- 導覽列 -->
+    <nav class="bg-blue-800 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="text-xl font-bold"><i class="fas fa-running mr-2"></i>陸運會管理系統</div>
+            <div id="nav-user-info" class="hidden flex items-center gap-4">
+                <span id="current-user-name" class="text-sm"></span>
+                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition">登出</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        
+        <!-- 登入畫面 -->
+        <div id="view-login" class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md mt-10">
+            <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">系統登入</h2>
+            <p class="text-gray-500 text-sm text-center mb-6">請使用學校 Google 帳號登入</p>
+            
+            <!-- 模擬 Google 登入按鈕 -->
+            <button onclick="simulateLogin('student')" class="w-full mb-4 flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded shadow-sm hover:bg-gray-50 transition">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" class="w-5 h-5" alt="Google">
+                模擬學生登入 (測試用)
+            </button>
+            <button onclick="simulateLogin('admin')" class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded shadow-sm hover:bg-blue-700 transition">
+                <i class="fas fa-user-shield"></i> 模擬管理員登入
+            </button>
+        </div>
+
+        <!-- 學生介面 -->
+        <div id="view-student" class="hidden">
+            <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                <h2 class="text-2xl font-bold mb-4 border-b pb-2">學生報名表</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-gray-700">
+                    <div><strong>姓名：</strong> <span id="stu-name">陳小明</span></div>
+                    <div><strong>班別：</strong> <span id="stu-class">3A</span></div>
+                    <div><strong>性別：</strong> <span id="stu-gender">男</span></div>
+                    <div><strong>出生年份：</strong> <span id="stu-year">2010</span></div>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-bold mb-2">參賽組別 (向上挑戰)：</label>
+                    <select id="stu-grade-select" class="w-full md:w-1/3 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500">
+                        <!-- 動態生成 -->
+                    </select>
+                    <p class="text-sm text-gray-500 mt-1">系統已根據您的出生年份計算符合資格的組別。</p>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold mb-2 text-blue-800"><i class="fas fa-road mr-2"></i>徑賽項目 (Track)</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="track-events">
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="track-cb w-4 h-4" value="100m"> <span>100m</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="track-cb w-4 h-4" value="200m"> <span>200m</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="track-cb w-4 h-4" value="400m"> <span>400m</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="track-cb w-4 h-4" value="800m"> <span>800m</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="track-cb w-4 h-4" value="1500m"> <span>1500m</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="track-cb w-4 h-4" value="100m hurdle"> <span>100m 跨欄</span></label>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold mb-2 text-green-800"><i class="fas fa-medal mr-2"></i>田賽項目 (Field)</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="field-events">
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="field-cb w-4 h-4" value="壘球"> <span>壘球</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="field-cb w-4 h-4" value="鉛球"> <span>鉛球</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="field-cb w-4 h-4" value="鐵餅"> <span>鐵餅</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="field-cb w-4 h-4" value="標槍"> <span>標槍</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="field-cb w-4 h-4" value="跳高"> <span>跳高</span></label>
+                        <label class="flex items-center space-x-2"><input type="checkbox" class="field-cb w-4 h-4" value="跳遠"> <span>跳遠</span></label>
+                    </div>
+                </div>
+
+                <div id="helper-section" class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded hidden">
+                    <h3 class="text-lg font-bold text-yellow-800 mb-2"><i class="fas fa-hands-helping mr-2"></i>工作人員報名</h3>
+                    <p class="text-sm text-yellow-700 mb-2">由於您未報名任何田徑項目，必須報名成為工作人員。</p>
+                    <select id="helper-select" class="w-full md:w-1/3 border border-gray-300 rounded px-3 py-2">
+                        <option value="">請選擇工作崗位...</option>
+                        <option value="計時員">計時員</option>
+                        <option value="檢錄員">檢錄員</option>
+                        <option value="糾察">糾察</option>
+                        <option value="救傷">救傷</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-between items-center bg-gray-50 p-4 rounded border">
+                    <div class="text-sm text-gray-600">
+                        已選：<span id="track-count" class="font-bold text-blue-600">0</span> 徑賽 / 
+                        <span id="field-count" class="font-bold text-green-600">0</span> 田賽
+                        <br>
+                        <span class="text-xs">(規則：最多報名兩徑一田 或 兩田一徑)</span>
+                    </div>
+                    <button onclick="submitRegistration()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition">
+                        提交報名
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 管理員介面 -->
+        <div id="view-admin" class="hidden">
+            <div class="flex border-b mb-6">
+                <button onclick="switchAdminTab('tab-upload')" class="admin-tab px-4 py-2 font-bold text-blue-600 border-b-2 border-blue-600">上傳資料</button>
+                <button onclick="switchAdminTab('tab-schedule')" class="admin-tab px-4 py-2 text-gray-500 hover:text-blue-600">賽程表</button>
+                <button onclick="switchAdminTab('tab-results')" class="admin-tab px-4 py-2 text-gray-500 hover:text-blue-600">輸入成績</button>
+                <button onclick="switchAdminTab('tab-scores')" class="admin-tab px-4 py-2 text-gray-500 hover:text-blue-600">總結算</button>
+            </div>
+
+            <!-- 上傳資料 Tab -->
+            <div id="tab-upload" class="admin-content bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">上傳學生資料 (CSV)</h2>
+                <p class="text-sm text-gray-600 mb-4">請上傳包含以下欄位的 CSV 檔案：班別, 姓名, 性別, 出生年份 (例如: 3A, 陳大文, 男, 2010)</p>
+                <input type="file" id="csv-file" accept=".csv" class="mb-4 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <button onclick="processCSV()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">匯入資料</button>
+                
+                <div class="mt-6">
+                    <h3 class="font-bold mb-2">系統組別設定 (出生年份)</h3>
+                    <div class="grid grid-cols-3 gap-4 text-sm">
+                        <div class="p-3 bg-gray-50 rounded border"><strong>甲組 (A):</strong> 2008 或以前</div>
+                        <div class="p-3 bg-gray-50 rounded border"><strong>乙組 (B):</strong> 2009 - 2010</div>
+                        <div class="p-3 bg-gray-50 rounded border"><strong>丙組 (C):</strong> 2011 或以後</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 賽程表 Tab -->
+            <div id="tab-schedule" class="admin-content hidden bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">賽程表生成</h2>
+                <p class="text-gray-600 mb-4">學生報名完成後，可在此一鍵生成賽程表。</p>
+                <button class="bg-blue-600 text-white px-4 py-2 rounded opacity-50 cursor-not-allowed">生成賽程表 (待報名結束)</button>
+            </div>
+
+            <!-- 輸入成績 Tab -->
+            <div id="tab-results" class="admin-content hidden bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">輸入比賽成績</h2>
+                <p class="text-gray-600">此處將於比賽當天開放，供工作人員輸入各項目的成績，系統會自動轉換為分數。</p>
+            </div>
+
+            <!-- 總結算 Tab -->
+            <div id="tab-scores" class="admin-content hidden bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">成績總結算</h2>
+                <p class="text-gray-600 mb-4">等待您提供計分方法後，此處將自動計算並顯示：</p>
+                <ul class="list-disc list-inside text-gray-700 space-y-2">
+                    <li>每一級各班冠軍</li>
+                    <li>全場總冠軍班別</li>
+                    <li>各組別個人總冠軍 (甲、乙、丙組)</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 核心邏輯與狀態管理 ---
+        
+        // 模擬當前登入用戶
+        let currentUser = null;
+        
+        // 模擬資料庫 (現實中應存在伺服器)
+        let mockStudentData = {
+            id: 's12345',
+            name: '陳小明',
+            class: '3A',
+            gender: '男',
+            birthYear: 2010 // 2010年出生 -> 預設乙組
+        };
+
+        // 判斷組別邏輯
+        function calculateDefaultGrade(year) {
+            if (year >= 2011) return 'C';
+            if (year >= 2009) return 'B';
+            return 'A';
+        }
+
+        // 登入邏輯
+        function simulateLogin(role) {
+            document.getElementById('view-login').classList.add('hidden');
+            document.getElementById('nav-user-info').classList.remove('hidden');
+            
+            if (role === 'student') {
+                currentUser = { role: 'student', ...mockStudentData };
+                document.getElementById('current-user-name').innerText = `${currentUser.class} ${currentUser.name}`;
+                initStudentDashboard();
+                document.getElementById('view-student').classList.remove('hidden');
+            } else {
+                currentUser = { role: 'admin', name: '管理員' };
+                document.getElementById('current-user-name').innerText = `管理員`;
+                document.getElementById('view-admin').classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('view-login').classList.remove('hidden');
+            document.getElementById('view-student').classList.add('hidden');
+            document.getElementById('view-admin').classList.add('hidden');
+            document.getElementById('nav-user-info').classList.add('hidden');
+        }
+
+        // --- 學生報名介面邏輯 ---
+        function initStudentDashboard() {
+            // 填入基本資料
+            document.getElementById('stu-name').innerText = currentUser.name;
+            document.getElementById('stu-class').innerText = currentUser.class;
+            document.getElementById('stu-gender').innerText = currentUser.gender;
+            document.getElementById('stu-year').innerText = currentUser.birthYear;
+
+            // 處理組別選擇 (向上挑戰邏輯)
+            const defaultGrade = calculateDefaultGrade(currentUser.birthYear);
+            const select = document.getElementById('stu-grade-select');
+            select.innerHTML = ''; // 清空
+            
+            const options = [];
+            if (defaultGrade === 'C') {
+                options.push({val: 'C', text: '丙組 (C Grade) - 預設'});
+                options.push({val: 'B', text: '乙組 (B Grade) - 向上挑戰'});
+                options.push({val: 'A', text: '甲組 (A Grade) - 向上挑戰'});
+            } else if (defaultGrade === 'B') {
+                options.push({val: 'B', text: '乙組 (B Grade) - 預設'});
+                options.push({val: 'A', text: '甲組 (A Grade) - 向上挑戰'});
+            } else {
+                options.push({val: 'A', text: '甲組 (A Grade) - 預設'});
+            }
+
+            options.forEach(opt => {
+                const el = document.createElement('option');
+                el.value = opt.val;
+                el.innerText = opt.text;
+                select.appendChild(el);
+            });
+
+            // 綁定 Checkbox 事件
+            const trackCbs = document.querySelectorAll('.track-cb');
+            const fieldCbs = document.querySelectorAll('.field-cb');
+            
+            const validateSelection = () => {
+                let trackCount = document.querySelectorAll('.track-cb:checked').length;
+                let fieldCount = document.querySelectorAll('.field-cb:checked').length;
+                let total = trackCount + fieldCount;
+
+                document.getElementById('track-count').innerText = trackCount;
+                document.getElementById('field-count').innerText = fieldCount;
+
+                // 規則：最多 3 項，必須是 2T1F 或 1T2F。
+                // 也就是說：Track 最多 2，Field 最多 2。總和最多 3。
+                
+                // 鎖定邏輯
+                trackCbs.forEach(cb => {
+                    if (!cb.checked) {
+                        // 如果 Track 已經選了 2 個，或者總數已經 3 個，禁止再選 Track
+                        cb.disabled = (trackCount >= 2) || (total >= 3);
+                    }
+                });
+
+                fieldCbs.forEach(cb => {
+                    if (!cb.checked) {
+                        // 如果 Field 已經選了 2 個，或者總數已經 3 個，禁止再選 Field
+                        cb.disabled = (fieldCount >= 2) || (total >= 3);
+                    }
+                });
+
+                // 工作人員邏輯
+                if (total === 0) {
+                    document.getElementById('helper-section').classList.remove('hidden');
+                } else {
+                    document.getElementById('helper-section').classList.add('hidden');
+                    document.getElementById('helper-select').value = ""; // 清空工作人員選擇
+                }
+            };
+
+            trackCbs.forEach(cb => cb.addEventListener('change', validateSelection));
+            fieldCbs.forEach(cb => cb.addEventListener('change', validateSelection));
+            
+            // 初始化驗證
+            validateSelection();
+        }
+
+        function submitRegistration() {
+            let trackCount = document.querySelectorAll('.track-cb:checked').length;
+            let fieldCount = document.querySelectorAll('.field-cb:checked').length;
+            let total = trackCount + fieldCount;
+            let helperRole = document.getElementById('helper-select').value;
+
+            if (total === 0 && helperRole === "") {
+                alert("您未有報名任何田徑項目，請選擇一項工作人員崗位！");
+                return;
+            }
+
+            let selectedGrade = document.getElementById('stu-grade-select').value;
+            let selectedTracks = Array.from(document.querySelectorAll('.track-cb:checked')).map(cb => cb.value);
+            let selectedFields = Array.from(document.querySelectorAll('.field-cb:checked')).map(cb => cb.value);
+
+            let confirmMsg = `請確認您的報名資料：\n\n參賽組別：${selectedGrade}組\n`;
+            if (total > 0) {
+                confirmMsg += `徑賽項目：${selectedTracks.join(', ') || '無'}\n`;
+                confirmMsg += `田賽項目：${selectedFields.join(', ') || '無'}\n`;
+            } else {
+                confirmMsg += `工作人員：${helperRole}\n`;
+            }
+
+            if(confirm(confirmMsg)) {
+                alert("報名成功！資料已提交。");
+                // 實際應用中，這裡會發送 API 請求到後端資料庫
+            }
+        }
+
+        // --- 管理員介面邏輯 ---
+        function switchAdminTab(tabId) {
+            // 更新 Tab 樣式
+            document.querySelectorAll('.admin-tab').forEach(btn => {
+                btn.classList.remove('font-bold', 'text-blue-600', 'border-b-2', 'border-blue-600');
+                btn.classList.add('text-gray-500');
+            });
+            event.target.classList.remove('text-gray-500');
+            event.target.classList.add('font-bold', 'text-blue-600', 'border-b-2', 'border-blue-600');
+
+            // 切換內容
+            document.querySelectorAll('.admin-content').forEach(div => div.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+        }
+
+        function processCSV() {
+            const fileInput = document.getElementById('csv-file');
+            if (!fileInput.files.length) {
+                alert("請先選擇 CSV 檔案！");
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const text = e.target.result;
+                // 簡單的 CSV 解析示範
+                const rows = text.split('\n');
+                let count = 0;
+                rows.forEach((row, index) => {
+                    if (index === 0 || row.trim() === '') return; // 跳過標題列或空行
+                    count++;
+                });
+                alert(`成功讀取 ${count} 筆學生資料！系統已自動為他們分配預設組別。`);
+            };
+            
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
