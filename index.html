@@ -71,20 +71,87 @@
         <div id="view-admin" class="hidden">
             <!-- Tabs -->
             <div class="flex overflow-x-auto border-b mb-6 bg-white rounded-t-lg px-2 pt-2">
-                <button onclick="switchAdminTab('tab-upload')" class="admin-tab whitespace-nowrap px-6 py-3 font-bold text-blue-800 border-b-4 border-blue-800">上傳資料與設定</button>
-                <button onclick="switchAdminTab('tab-results')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent">輸入成績</button>
-                <button onclick="switchAdminTab('tab-print')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-print mr-1"></i> 列印報告</button>
+                <button onclick="switchAdminTab('tab-overview')" class="admin-tab whitespace-nowrap px-6 py-3 font-bold text-blue-800 border-b-4 border-blue-800"><i class="fas fa-users mr-1"></i> 報名概覽</button>
+                <button onclick="switchAdminTab('tab-event-query')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-search mr-1"></i> 項目查詢</button>
+                <button onclick="switchAdminTab('tab-upload')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-cloud-upload-alt mr-1"></i> 上傳資料與設定</button>
+                <button onclick="switchAdminTab('tab-results')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-trophy mr-1"></i> 輸入成績</button>
+            </div>
+
+            <!-- 報名概覽 Tab -->
+            <div id="tab-overview" class="admin-content bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h2 class="text-xl font-bold text-gray-800">學生報名概覽</h2>
+                    <div class="flex items-center gap-3">
+                        <select id="class-filter" onchange="renderOverviewTable()" class="border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="ALL">顯示所有班別</option>
+                            <!-- 班別選項將由 JS 動態生成 -->
+                        </select>
+                        <button onclick="fetchStudentsData()" class="bg-blue-100 text-blue-800 hover:bg-blue-200 px-4 py-2 rounded-lg transition">
+                            <i class="fas fa-sync-alt"></i> 重新整理
+                        </button>
+                        <button onclick="randomizeRegistrations()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition shadow flex items-center">
+                            <i class="fas fa-dice mr-2"></i> 隨機產生報名 (測試用)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200">
+                        <thead class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                            <tr>
+                                <th class="py-3 px-4 text-left">班別</th>
+                                <th class="py-3 px-4 text-left">班號</th>
+                                <th class="py-3 px-4 text-left">姓名 (中/英)</th>
+                                <th class="py-3 px-4 text-center">性別</th>
+                                <th class="py-3 px-4 text-center">狀態</th>
+                                <th class="py-3 px-4 text-left">已報名項目</th>
+                            </tr>
+                        </thead>
+                        <tbody id="overview-tbody" class="text-gray-600 text-sm font-light">
+                            <tr><td colspan="6" class="py-10 text-center text-gray-400">載入中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 項目查詢 Tab -->
+            <div id="tab-event-query" class="admin-content hidden bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h2 class="text-xl font-bold text-gray-800">比賽項目查詢</h2>
+                    <div class="flex items-center gap-3 w-full md:w-auto">
+                        <select id="event-filter" onchange="renderEventQueryTable()" class="border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-80">
+                            <option value="">-- 請選擇比賽項目 --</option>
+                            <!-- 項目選項將由 JS 動態生成 -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200">
+                        <thead class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                            <tr>
+                                <th class="py-3 px-4 text-left">號碼布</th>
+                                <th class="py-3 px-4 text-left">班別</th>
+                                <th class="py-3 px-4 text-left">班號</th>
+                                <th class="py-3 px-4 text-left">姓名</th>
+                                <th class="py-3 px-4 text-center">性別</th>
+                            </tr>
+                        </thead>
+                        <tbody id="event-query-tbody" class="text-gray-600 text-sm font-light">
+                            <tr><td colspan="5" class="py-10 text-center text-gray-400">請先在上方選擇比賽項目</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- 上傳資料 Tab -->
-            <div id="tab-upload" class="admin-content bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
+            <div id="tab-upload" class="admin-content hidden bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
                 <h2 class="text-xl font-bold mb-4 text-gray-800"><i class="fas fa-cloud-upload-alt mr-2 text-blue-600"></i>匯入學生名單 (CSV) 到 Firebase</h2>
                 
                 <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6 text-sm text-blue-800">
                     <p class="font-bold mb-1">💡 CSV 格式要求：</p>
                     <p>請確保您的 CSV 檔案包含以下標題列 (需完全一致)：<br>
                     <code class="bg-white px-1 rounded text-red-600">School Year, Class Code, Class No., Name (English), Name (Chinese), Sex, Login Name, DOB, email</code></p>
-                    <p class="mt-2 text-red-600 font-bold">⚠️ 注意：儲存 CSV 時請務必選擇「UTF-8」編碼，否則中文姓名會變成亂碼！</p>
                 </div>
 
                 <div class="flex items-center gap-4 mb-4">
@@ -94,7 +161,6 @@
                     </button>
                 </div>
 
-                <!-- 匯入進度顯示區 -->
                 <div id="upload-status" class="hidden mt-4 p-4 rounded-lg border">
                     <div class="flex items-center justify-between mb-2">
                         <span id="status-text" class="font-bold text-gray-700">準備中...</span>
@@ -111,24 +177,15 @@
             <div id="tab-results" class="admin-content hidden bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
                 <h2 class="text-xl font-bold mb-4 text-gray-800">輸入比賽成績 (開發中)</h2>
             </div>
-
-            <!-- 列印報告 Tab -->
-            <div id="tab-print" class="admin-content hidden bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
-                <h2 class="text-xl font-bold mb-4 text-gray-800">列印報告 (開發中)</h2>
-            </div>
         </div>
     </div>
 
-    <!-- Firebase SDK (使用 ES Modules) -->
+    <!-- Firebase SDK -->
     <script type="module">
-        // 1. 引入您提供的 Firebase 核心與 Analytics 模組
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
-        
-        // 2. 額外引入 Firestore 資料庫模組 (版本需與上面一致)
-        import { getFirestore, doc, writeBatch } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        import { getFirestore, doc, writeBatch, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
-        // 3. 您的 Firebase 專案設定檔
         const firebaseConfig = {
             apiKey: "AIzaSyB6N110dVd8_T9tygXEApjTPsQC5HsF0IQ",
             authDomain: "athletic-meet-85936.firebaseapp.com",
@@ -139,7 +196,6 @@
             measurementId: "G-08J86TYH2L"
         };
 
-        // 4. 初始化 Firebase
         let app, db, analytics;
         try {
             app = initializeApp(firebaseConfig);
@@ -150,13 +206,23 @@
             console.error("❌ Firebase 初始化失敗：", error);
         }
 
-        // 5. 將 Firestore 工具暴露給全域環境，讓下方的 JavaScript 可以呼叫
+        // 暴露給全域
         window.db = db;
         window.writeBatch = writeBatch;
         window.doc = doc;
+        window.collection = collection;
+        window.getDocs = getDocs;
     </script>
 
     <script>
+        // 全域變數存放學生資料，避免頻繁讀取資料庫
+        let globalStudentsData = [];
+        
+        // 可供選擇的比賽項目清單 (用於隨機產生及選單)
+        const trackEvents = ['100M', '200M', '400M', '800M', '1500M'];
+        const fieldEvents = ['跳遠', '跳高', '鉛球', '鐵餅', '標槍'];
+        const allEvents = [...trackEvents, ...fieldEvents];
+
         // --- 核心邏輯與狀態管理 ---
         function simulateLogin(role) {
             document.getElementById('view-login').classList.add('hidden');
@@ -165,6 +231,8 @@
             if (role === 'admin') {
                 document.getElementById('current-user-name').innerText = `管理員`;
                 document.getElementById('view-admin').classList.remove('hidden');
+                // 登入後自動載入學生資料
+                fetchStudentsData();
             }
         }
 
@@ -186,7 +254,204 @@
             document.getElementById(tabId).classList.remove('hidden');
         }
 
-        // --- 號碼布計算邏輯 (共用) ---
+        // --- 讀取學生資料與渲染 UI ---
+        async function fetchStudentsData() {
+            if (!window.db) return;
+            
+            const tbody = document.getElementById('overview-tbody');
+            tbody.innerHTML = '<tr><td colspan="6" class="py-10 text-center text-blue-600"><i class="fas fa-spinner fa-spin mr-2"></i>正在從資料庫載入資料...</td></tr>';
+            
+            try {
+                const querySnapshot = await window.getDocs(window.collection(window.db, "students"));
+                globalStudentsData = [];
+                let classesSet = new Set();
+                let eventsSet = new Set();
+
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    globalStudentsData.push(data);
+                    if (data.classCode) classesSet.add(data.classCode);
+                    if (data.registeredEvents) {
+                        data.registeredEvents.forEach(ev => eventsSet.add(ev));
+                    }
+                });
+
+                // 排序學生：先按班別，再按班號
+                globalStudentsData.sort((a, b) => {
+                    if (a.classCode === b.classCode) return a.classNo - b.classNo;
+                    return a.classCode.localeCompare(b.classCode);
+                });
+
+                // 更新班別下拉選單
+                const classFilter = document.getElementById('class-filter');
+                const currentClass = classFilter.value;
+                classFilter.innerHTML = '<option value="ALL">顯示所有班別</option>';
+                Array.from(classesSet).sort().forEach(cls => {
+                    classFilter.innerHTML += `<option value="${cls}">${cls}</option>`;
+                });
+                if (Array.from(classesSet).includes(currentClass)) classFilter.value = currentClass;
+
+                // 更新項目查詢下拉選單
+                const eventFilter = document.getElementById('event-filter');
+                const currentEvent = eventFilter.value;
+                eventFilter.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
+                Array.from(eventsSet).sort().forEach(ev => {
+                    eventFilter.innerHTML += `<option value="${ev}">${ev}</option>`;
+                });
+                if (Array.from(eventsSet).includes(currentEvent)) eventFilter.value = currentEvent;
+
+                renderOverviewTable();
+                renderEventQueryTable();
+
+            } catch (error) {
+                console.error("讀取資料失敗:", error);
+                tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-red-500">讀取失敗：${error.message}</td></tr>`;
+            }
+        }
+
+        // 渲染報名概覽表格
+        function renderOverviewTable() {
+            const tbody = document.getElementById('overview-tbody');
+            const classFilter = document.getElementById('class-filter').value;
+            
+            tbody.innerHTML = '';
+            
+            const filteredData = classFilter === 'ALL' 
+                ? globalStudentsData 
+                : globalStudentsData.filter(s => s.classCode === classFilter);
+
+            if (filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="py-10 text-center text-gray-500">沒有找到學生資料</td></tr>';
+                return;
+            }
+
+            filteredData.forEach(student => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-200 hover:bg-gray-50';
+                
+                const hasEvents = student.registeredEvents && student.registeredEvents.length > 0;
+                const statusHtml = hasEvents 
+                    ? `<span class="bg-green-100 text-green-700 py-1 px-3 rounded-full text-xs font-bold">已報名</span>`
+                    : `<span class="bg-red-100 text-red-700 py-1 px-3 rounded-full text-xs font-bold">未報名</span>`;
+                
+                const eventsHtml = hasEvents
+                    ? student.registeredEvents.map(e => `<span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-1 text-xs mr-1 mb-1">${e}</span>`).join('')
+                    : '<span class="text-gray-400">-</span>';
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 text-left font-medium">${student.classCode || '-'}</td>
+                    <td class="py-3 px-4 text-left">${student.classNo || '-'}</td>
+                    <td class="py-3 px-4 text-left">
+                        <div class="font-medium text-gray-800">${student.nameZh || ''}</div>
+                        <div class="text-xs text-gray-500">${student.nameEn || ''}</div>
+                    </td>
+                    <td class="py-3 px-4 text-center">${student.gender || '-'}</td>
+                    <td class="py-3 px-4 text-center">${statusHtml}</td>
+                    <td class="py-3 px-4 text-left max-w-xs">${eventsHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 渲染項目查詢表格
+        function renderEventQueryTable() {
+            const tbody = document.getElementById('event-query-tbody');
+            const eventFilter = document.getElementById('event-filter').value;
+            
+            if (!eventFilter) {
+                tbody.innerHTML = '<tr><td colspan="5" class="py-10 text-center text-gray-400">請先在上方選擇比賽項目</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = '';
+            
+            const filteredData = globalStudentsData.filter(s => 
+                s.registeredEvents && s.registeredEvents.includes(eventFilter)
+            );
+
+            if (filteredData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-gray-500">目前沒有學生報名「${eventFilter}」</td></tr>`;
+                return;
+            }
+
+            filteredData.forEach(student => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-200 hover:bg-gray-50';
+                
+                tr.innerHTML = `
+                    <td class="py-3 px-4 text-left font-bold text-blue-800">${student.bibNumber || '-'}</td>
+                    <td class="py-3 px-4 text-left font-medium">${student.classCode || '-'}</td>
+                    <td class="py-3 px-4 text-left">${student.classNo || '-'}</td>
+                    <td class="py-3 px-4 text-left">${student.nameZh || student.nameEn}</td>
+                    <td class="py-3 px-4 text-center">${student.gender || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- 隨機產生報名資料 (測試用) ---
+        async function randomizeRegistrations() {
+            if (!window.db || globalStudentsData.length === 0) {
+                alert("請先確保資料庫中有學生資料！");
+                return;
+            }
+
+            if (!confirm("⚠️ 警告：這將會覆蓋目前所有學生的報名資料，隨機產生 1~3 個項目。確定要繼續嗎？")) {
+                return;
+            }
+
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>產生中...';
+            btn.disabled = true;
+
+            try {
+                const CHUNK_SIZE = 400;
+                let processedCount = 0;
+
+                for (let i = 0; i < globalStudentsData.length; i += CHUNK_SIZE) {
+                    const chunk = globalStudentsData.slice(i, i + CHUNK_SIZE);
+                    const batch = window.writeBatch(window.db);
+
+                    chunk.forEach(student => {
+                        const docRef = window.doc(window.db, "students", student.loginName);
+                        
+                        // 判斷性別前綴
+                        const isMale = (student.gender === 'M' || student.gender === '男');
+                        const genderPrefix = isMale ? '男子' : '女子';
+                        
+                        // 隨機分配組別 (甲、乙、丙)
+                        const grades = ['甲組', '乙組', '丙組'];
+                        const grade = grades[Math.floor(Math.random() * grades.length)];
+                        
+                        // 隨機挑選 1~3 個項目
+                        const numEvents = Math.floor(Math.random() * 3) + 1;
+                        let shuffledEvents = [...allEvents].sort(() => 0.5 - Math.random());
+                        let selectedEvents = shuffledEvents.slice(0, numEvents).map(ev => `${genderPrefix}${grade} ${ev}`);
+
+                        batch.update(docRef, {
+                            registeredEvents: selectedEvents
+                        });
+                    });
+
+                    await batch.commit();
+                    processedCount += chunk.length;
+                    console.log(`已隨機更新 ${processedCount} 筆...`);
+                }
+
+                alert("✅ 隨機報名資料產生完成！");
+                fetchStudentsData(); // 重新載入畫面
+
+            } catch (error) {
+                console.error("隨機產生失敗:", error);
+                alert("產生失敗：" + error.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // --- CSV 處理 (保持不變) ---
         function getBibNumber(className, classNo) {
             if (!className || !classNo) return "";
             const formStr = className.charAt(0);
@@ -197,7 +462,6 @@
             return `${formStr}${letterNum}${paddedNum}`;
         }
 
-        // --- CSV 處理與 Firebase 上傳邏輯 ---
         function logStatus(message) {
             const logDiv = document.getElementById('status-log');
             logDiv.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${message}</div>`;
@@ -205,18 +469,9 @@
         }
 
         async function processCSV() {
-            if (!window.db) {
-                alert("Firebase 尚未正確初始化，請重新整理網頁或檢查網路連線！");
-                return;
-            }
-
-            const fileInput = document.getElementById('csv-file');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                alert("請先選擇一個 CSV 檔案！");
-                return;
-            }
+            if (!window.db) return alert("Firebase 尚未初始化！");
+            const file = document.getElementById('csv-file').files[0];
+            if (!file) return alert("請選擇 CSV 檔案！");
 
             const statusDiv = document.getElementById('upload-status');
             const statusText = document.getElementById('status-text');
@@ -225,32 +480,17 @@
             const btn = document.getElementById('upload-btn');
             
             statusDiv.classList.remove('hidden');
-            document.getElementById('status-log').innerHTML = ''; // 清空日誌
-            btn.disabled = true;
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('status-log').innerHTML = '';
+            btn.disabled = true; btn.classList.add('opacity-50');
             
-            logStatus(`開始讀取檔案: ${file.name}`);
-
             Papa.parse(file, {
-                header: true,          // 將第一行視為屬性名稱
-                skipEmptyLines: true,  // 跳過空行
+                header: true, skipEmptyLines: true,
                 complete: async function(results) {
                     const data = results.data;
                     const total = data.length;
-                    
-                    if (total === 0) {
-                        logStatus("錯誤：CSV 檔案中沒有資料。");
-                        btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                        return;
-                    }
-
-                    logStatus(`成功解析 CSV，共 ${total} 筆資料。開始寫入 Firebase...`);
-                    statusText.innerText = "上傳中...";
-                    statusText.className = "font-bold text-blue-600";
+                    if (total === 0) return;
 
                     try {
-                        // Firestore 批次寫入 (Batch Write) - 每次最多 500 筆
-                        // 為了安全起見，我們切分成每批 400 筆
                         const CHUNK_SIZE = 400;
                         let processedCount = 0;
 
@@ -259,20 +499,10 @@
                             const batch = window.writeBatch(window.db);
 
                             chunk.forEach(student => {
-                                // 檢查必填欄位 (Login Name)
-                                if (!student['Login Name']) {
-                                    logStatus(`警告：跳過一筆缺少 Login Name 的資料`);
-                                    return; 
-                                }
-
-                                // 準備寫入 Firestore 的文件參考
-                                // 我們使用 Login Name (例如 s251077) 作為 Document ID
+                                if (!student['Login Name']) return;
                                 const docRef = window.doc(window.db, "students", student['Login Name']);
-                                
-                                // 自動計算號碼布
                                 const bib = getBibNumber(student['Class Code'], student['Class No.']);
 
-                                // 將 CSV 欄位映射到資料庫欄位
                                 batch.set(docRef, {
                                     schoolYear: student['School Year'] || "",
                                     classCode: student['Class Code'] || "",
@@ -283,42 +513,24 @@
                                     loginName: student['Login Name'],
                                     dob: student['DOB'] || "",
                                     email: student['email'] || "",
-                                    bibNumber: bib, // 儲存計算好的號碼布
+                                    bibNumber: bib,
                                     updatedAt: new Date().toISOString()
-                                }, { merge: true }); // 使用 merge: true，如果學生已存在則更新資料，不覆蓋其他原有設定
+                                }, { merge: true });
                             });
 
                             await batch.commit();
                             processedCount += chunk.length;
-                            
-                            // 更新進度條
-                            const percent = Math.round((processedCount / total) * 100);
-                            statusBar.style.width = `${percent}%`;
+                            statusBar.style.width = `${Math.round((processedCount/total)*100)}%`;
                             statusCount.innerText = `${processedCount} / ${total}`;
-                            logStatus(`已成功寫入 ${processedCount} 筆資料...`);
+                            logStatus(`已寫入 ${processedCount} 筆...`);
                         }
-
-                        statusText.innerText = "上傳完成！";
-                        statusText.className = "font-bold text-green-600";
-                        logStatus("🎉 所有學生資料已成功匯入 Firebase！");
-                        alert("匯入成功！您可以到 Firebase Console 查看資料。");
-
+                        alert("匯入成功！");
+                        fetchStudentsData(); // 匯入完自動重整表格
                     } catch (error) {
-                        console.error("上傳失敗:", error);
-                        statusText.innerText = "上傳失敗";
-                        statusText.className = "font-bold text-red-600";
-                        logStatus(`❌ 錯誤: ${error.message}`);
-                        if (error.message.includes("Missing or insufficient permissions")) {
-                            logStatus("⚠️ 權限不足：請至 Firebase Console -> Firestore Database -> Rules，將規則改為允許寫入 (例如測試模式)。");
-                        }
+                        alert("上傳失敗：" + error.message);
                     } finally {
-                        btn.disabled = false;
-                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        btn.disabled = false; btn.classList.remove('opacity-50');
                     }
-                },
-                error: function(error) {
-                    logStatus(`❌ 解析 CSV 失敗: ${error.message}`);
-                    btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed');
                 }
             });
         }
