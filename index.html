@@ -424,6 +424,34 @@
             return { track: validTrack, field: validField };
         }
 
+        // 核心邏輯：根據學生年齡或班別，計算其合理(預設)的參賽組別
+        function getStudentDefaultGrade(student) {
+            let year = 0;
+            // 優先檢查出生年份
+            if (student.dob) {
+                const match = student.dob.match(/\b(19|20)\d{2}\b/);
+                if (match) year = parseInt(match[0]);
+            }
+            
+            if (year > 0) {
+                if (year >= 2012) return '丙組';
+                if (year >= 2010) return '乙組';
+                return '甲組';
+            }
+
+            // 若沒有出生年份，使用班級來推斷 (中一、二為丙組，中三、四為乙組，中五、六為甲組)
+            if (student.classCode) {
+                const form = parseInt(student.classCode.charAt(0));
+                if (!isNaN(form)) {
+                    if (form <= 2) return '丙組';
+                    if (form <= 4) return '乙組';
+                    return '甲組';
+                }
+            }
+            
+            return '甲組'; // 預設防呆
+        }
+
         // 登入與登出
         function simulateLogin(role) {
             document.getElementById('view-login').classList.add('hidden');
@@ -456,12 +484,6 @@
         // ==========================================
         // 學生報名介面邏輯
         // ==========================================
-        function calculateDefaultGrade(year) {
-            if (year >= 2012) return '丙組'; 
-            if (year >= 2010) return '乙組'; 
-            return '甲組';                   
-        }
-
         function initStudentDashboard() {
             document.getElementById('stu-name').innerText = currentUser.nameZh;
             document.getElementById('stu-class').innerText = currentUser.classCode;
@@ -470,7 +492,7 @@
             const birthYear = parseInt(currentUser.dob.split('-')[0]);
             document.getElementById('stu-year').innerText = birthYear;
 
-            const defaultGrade = calculateDefaultGrade(birthYear);
+            const defaultGrade = getStudentDefaultGrade(currentUser);
             const select = document.getElementById('stu-grade-select');
             select.innerHTML = ''; 
             
@@ -649,7 +671,7 @@
                 globalStudentsData = [];
                 let classesSet = new Set();
                 let dbEventsSet = new Set(); 
-                let dbHelpersSet = new Set(); // 記錄資料庫中出現過的工作崗位
+                let dbHelpersSet = new Set(); 
 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
@@ -852,16 +874,7 @@
             document.getElementById('edit-helper').value = currentEditingStudent.helperRole || "";
 
             let dobText = currentEditingStudent.dob || '未知';
-            let suggestedGrade = '未知';
-            if (dobText !== '未知') {
-                const yearMatch = dobText.match(/\b(19|20)\d{2}\b/);
-                if (yearMatch) {
-                    const year = parseInt(yearMatch[0]);
-                    if (year >= 2012) suggestedGrade = '丙組';
-                    else if (year >= 2010) suggestedGrade = '乙組';
-                    else suggestedGrade = '甲組';
-                }
-            }
+            let suggestedGrade = getStudentDefaultGrade(currentEditingStudent);
             
             document.getElementById('edit-student-dob').innerHTML = `<i class="fas fa-birthday-cake mr-1"></i>出生日期: ${dobText} <span class="text-blue-600 font-bold ml-2">(系統建議: ${suggestedGrade})</span>`;
 
@@ -871,7 +884,7 @@
                 if (firstEvent.includes('甲組')) gradeSelect.value = '甲組';
                 else if (firstEvent.includes('乙組')) gradeSelect.value = '乙組';
                 else if (firstEvent.includes('丙組')) gradeSelect.value = '丙組';
-            } else if (suggestedGrade !== '未知') {
+            } else {
                 gradeSelect.value = suggestedGrade;
             }
 
@@ -1021,8 +1034,8 @@
                         const isMale = (student.gender === 'M' || student.gender === '男');
                         const genderPrefix = isMale ? '男子' : '女子';
                         
-                        const grades = ['甲組', '乙組', '丙組'];
-                        const grade = grades[Math.floor(Math.random() * grades.length)];
+                        // 修正：根據學生的年齡或班別取得合理的組別，而不是完全隨機
+                        const grade = getStudentDefaultGrade(student);
                         
                         let numTrack = Math.floor(Math.random() * 3); 
                         let numField = Math.floor(Math.random() * 3); 
