@@ -139,9 +139,20 @@
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <h2 class="text-xl font-bold text-gray-800">學生報名概覽</h2>
                     <div class="flex items-center gap-3 flex-wrap">
+                        <!-- 班別篩選 -->
                         <select id="class-filter" onchange="renderOverviewTable()" class="border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="ALL">顯示所有班別</option>
                         </select>
+                        
+                        <!-- 新增：狀態篩選 -->
+                        <select id="status-filter" onchange="renderOverviewTable()" class="border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                            <option value="ALL">所有狀態</option>
+                            <option value="UNREGISTERED">🔴 未報名</option>
+                            <option value="REGISTERED">🟢 已報名</option>
+                            <option value="HELPER">🟡 僅工作人員</option>
+                            <option value="BOTH">🟣 參賽+工作</option>
+                        </select>
+
                         <button onclick="fetchStudentsData()" class="bg-blue-100 text-blue-800 hover:bg-blue-200 px-4 py-2 rounded-lg transition">
                             <i class="fas fa-sync-alt"></i> 重新整理
                         </button>
@@ -728,12 +739,32 @@
         function renderOverviewTable() {
             const tbody = document.getElementById('overview-tbody');
             const classFilter = document.getElementById('class-filter').value;
+            const statusFilter = document.getElementById('status-filter').value; // 取得狀態篩選的值
             tbody.innerHTML = '';
             
-            const filteredData = classFilter === 'ALL' ? globalStudentsData : globalStudentsData.filter(s => s.classCode === classFilter);
+            let filteredData = globalStudentsData;
+
+            // 1. 班別篩選
+            if (classFilter !== 'ALL') {
+                filteredData = filteredData.filter(s => s.classCode === classFilter);
+            }
+
+            // 2. 狀態篩選
+            if (statusFilter !== 'ALL') {
+                filteredData = filteredData.filter(student => {
+                    const hasEvents = student.registeredEvents && student.registeredEvents.length > 0;
+                    const isHelper = student.helperRole && student.helperRole !== "";
+                    
+                    if (statusFilter === 'UNREGISTERED') return !hasEvents && !isHelper;
+                    if (statusFilter === 'REGISTERED') return hasEvents && !isHelper;
+                    if (statusFilter === 'HELPER') return !hasEvents && isHelper;
+                    if (statusFilter === 'BOTH') return hasEvents && isHelper;
+                    return true;
+                });
+            }
 
             if (filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="py-10 text-center text-gray-500">沒有找到學生資料</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="py-10 text-center text-gray-500">沒有找到符合條件的學生資料</td></tr>';
                 return;
             }
 
