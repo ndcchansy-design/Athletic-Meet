@@ -130,6 +130,7 @@
             <div class="flex overflow-x-auto border-b mb-6 bg-white rounded-t-lg px-2 pt-2">
                 <button onclick="switchAdminTab('tab-overview')" class="admin-tab whitespace-nowrap px-6 py-3 font-bold text-blue-800 border-b-4 border-blue-800"><i class="fas fa-users mr-1"></i> 報名概覽</button>
                 <button onclick="switchAdminTab('tab-event-query')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-search mr-1"></i> 項目查詢</button>
+                <button onclick="switchAdminTab('tab-helper-query')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-hands-helping mr-1"></i> 工作人員查詢</button>
                 <button onclick="switchAdminTab('tab-upload')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-cloud-upload-alt mr-1"></i> 上傳資料與設定</button>
             </div>
 
@@ -194,6 +195,37 @@
                         </thead>
                         <tbody id="event-query-tbody" class="text-gray-600 text-sm font-light">
                             <tr><td colspan="5" class="py-10 text-center text-gray-400">請先在上方選擇比賽項目</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 工作人員查詢 Tab -->
+            <div id="tab-helper-query" class="admin-content hidden bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h2 class="text-xl font-bold text-gray-800">工作人員查詢</h2>
+                    <div class="flex items-center gap-3 w-full md:w-auto">
+                        <select id="helper-filter" onchange="renderHelperQueryTable()" class="border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-80">
+                            <option value="">-- 請選擇工作崗位 --</option>
+                            <!-- 選項由 JS 動態生成 -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200">
+                        <thead class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                            <tr>
+                                <th class="py-3 px-4 text-left">號碼布</th>
+                                <th class="py-3 px-4 text-left">班別</th>
+                                <th class="py-3 px-4 text-left">班號</th>
+                                <th class="py-3 px-4 text-left">姓名</th>
+                                <th class="py-3 px-4 text-center">性別</th>
+                                <th class="py-3 px-4 text-left">工作崗位</th>
+                            </tr>
+                        </thead>
+                        <tbody id="helper-query-tbody" class="text-gray-600 text-sm font-light">
+                            <tr><td colspan="6" class="py-10 text-center text-gray-400">請先在上方選擇工作崗位</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -355,12 +387,12 @@
         let globalStudentsData = [];
         let currentUser = null;
         
-        // 用於判斷圖示與顏色的全域清單 (包含舊名稱以防舊資料出錯)
+        // 用於判斷圖示與顏色的全域清單
         const trackEventsList = ['100M', '100M跨欄', '200M', '400M', '800M', '1500M'];
         const fieldEventsList = ['跳高', '跳遠', '擲鐵餅', '擲標槍', '推鉛球', '擲壘球', '鐵餅', '標槍', '鉛球', '壘球'];
         const helperRolesList = ['司令台', '跳高裁判員', '跳遠裁判員', '鉛球裁判員', '標槍/壘球裁判員', '鐵餅裁判員', '召集處', '司線員', '紀錄員', '計時員', '終點裁判員', '彎道裁判員', '獎品', '攝影'];
         
-        // 模擬學生資料 (供測試登入使用)
+        // 模擬學生資料
         const mockStudentData = {
             loginName: 's2025001',
             nameZh: '陳小明',
@@ -376,14 +408,12 @@
         function getValidEvents(gender, grade) {
             const isMale = (gender === 'M' || gender === '男');
             const prefix = isMale ? '男' : '女';
-            const gradeLetter = grade.charAt(0); // '甲', '乙', '丙'
-            const category = prefix + gradeLetter; // e.g., '男甲', '女乙'
+            const gradeLetter = grade.charAt(0); 
+            const category = prefix + gradeLetter; 
 
-            // 所有組別都有的項目
             let validTrack = ['100M', '100M跨欄', '200M', '400M', '800M', '1500M'];
             let validField = ['跳高', '跳遠', '擲鐵餅', '推鉛球'];
 
-            // 根據圖片規則加入特定田賽
             if (['男甲', '男乙', '女甲'].includes(category)) {
                 validField.push('擲標槍');
             }
@@ -463,10 +493,7 @@
                 select.appendChild(el);
             });
 
-            // 當組別改變時，重新渲染合法的比賽項目
             select.addEventListener('change', renderStudentEvents);
-            
-            // 初始渲染項目
             renderStudentEvents();
         }
 
@@ -477,7 +504,6 @@
             const trackContainer = document.getElementById('track-events');
             const fieldContainer = document.getElementById('field-events');
 
-            // 記住目前的選擇，如果切換組別後該項目仍合法，則保留勾選
             const currentTrack = Array.from(document.querySelectorAll('.track-cb:checked')).map(cb => cb.value);
             const currentField = Array.from(document.querySelectorAll('.field-cb:checked')).map(cb => cb.value);
 
@@ -501,7 +527,6 @@
                     </label>`;
             });
 
-            // 重新綁定驗證事件
             document.querySelectorAll('.track-cb, .field-cb').forEach(cb => cb.addEventListener('change', validateStudentSelection));
             validateStudentSelection();
         }
@@ -517,7 +542,6 @@
             document.getElementById('track-count').innerText = trackCount;
             document.getElementById('field-count').innerText = fieldCount;
 
-            // 規則：最多3項 (2徑1田 或 2田1徑)
             trackCbs.forEach(cb => {
                 if (!cb.checked) cb.disabled = (trackCount >= 2) || (total >= 3);
             });
@@ -526,7 +550,6 @@
                 if (!cb.checked) cb.disabled = (fieldCount >= 2) || (total >= 3);
             });
 
-            // 工作人員邏輯 (若無報名項目，強制顯示)
             if (total === 0) {
                 document.getElementById('helper-section').classList.remove('hidden');
             } else {
@@ -625,13 +648,15 @@
                 const querySnapshot = await window.getDocs(window.collection(window.db, "students"));
                 globalStudentsData = [];
                 let classesSet = new Set();
-                let dbEventsSet = new Set(); // 資料庫中實際存在的項目
+                let dbEventsSet = new Set(); 
+                let dbHelpersSet = new Set(); // 記錄資料庫中出現過的工作崗位
 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
                     globalStudentsData.push(data);
                     if (data.classCode) classesSet.add(data.classCode);
                     if (data.registeredEvents) data.registeredEvents.forEach(ev => dbEventsSet.add(ev));
+                    if (data.helperRole && data.helperRole.trim() !== "") dbHelpersSet.add(data.helperRole);
                 });
 
                 globalStudentsData.sort((a, b) => {
@@ -639,14 +664,14 @@
                     return (a.classCode || '').localeCompare(b.classCode || '');
                 });
 
-                // 更新班別 Filter
+                // 1. 更新班別 Filter
                 const classFilter = document.getElementById('class-filter');
                 const currentClass = classFilter.value;
                 classFilter.innerHTML = '<option value="ALL">顯示所有班別</option>';
                 Array.from(classesSet).sort().forEach(cls => classFilter.innerHTML += `<option value="${cls}">${cls}</option>`);
                 if (Array.from(classesSet).includes(currentClass)) classFilter.value = currentClass;
 
-                // 產生所有合法的比賽項目組合，供管理員查詢 (確保即使沒人報名也能查)
+                // 2. 更新比賽項目 Filter
                 const allValidCombinations = [];
                 ['男', '女'].forEach(g => {
                     ['甲組', '乙組', '丙組'].forEach(grade => {
@@ -656,8 +681,6 @@
                         valid.field.forEach(ev => allValidCombinations.push(`${genderPrefix}${grade} ${ev}`));
                     });
                 });
-
-                // 合併合法組合與資料庫現有組合 (防呆舊資料)
                 const finalEventsList = Array.from(new Set([...allValidCombinations, ...Array.from(dbEventsSet)])).sort();
 
                 const eventFilter = document.getElementById('event-filter');
@@ -666,8 +689,17 @@
                 finalEventsList.forEach(ev => eventFilter.innerHTML += `<option value="${ev}">${ev}</option>`);
                 if (finalEventsList.includes(currentEvent)) eventFilter.value = currentEvent;
 
+                // 3. 更新工作人員 Filter
+                const finalHelpersList = Array.from(new Set([...helperRolesList, ...Array.from(dbHelpersSet)])).filter(Boolean).sort();
+                const helperFilter = document.getElementById('helper-filter');
+                const currentHelper = helperFilter.value;
+                helperFilter.innerHTML = '<option value="">-- 請選擇工作崗位 --</option><option value="ALL" class="font-bold text-blue-600">顯示所有工作人員</option>';
+                finalHelpersList.forEach(role => helperFilter.innerHTML += `<option value="${role}">${role}</option>`);
+                if (finalHelpersList.includes(currentHelper) || currentHelper === "ALL") helperFilter.value = currentHelper;
+
                 renderOverviewTable();
                 renderEventQueryTable();
+                renderHelperQueryTable();
             } catch (error) {
                 tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-red-500">讀取失敗：${error.message}</td></tr>`;
             }
@@ -759,6 +791,51 @@
             });
         }
 
+        function renderHelperQueryTable() {
+            const tbody = document.getElementById('helper-query-tbody');
+            const helperFilter = document.getElementById('helper-filter').value;
+            
+            if (!helperFilter) {
+                tbody.innerHTML = '<tr><td colspan="6" class="py-10 text-center text-gray-400">請先在上方選擇工作崗位</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            
+            let filteredData = [];
+            if (helperFilter === 'ALL') {
+                filteredData = globalStudentsData.filter(s => s.helperRole && s.helperRole.trim() !== "");
+            } else {
+                filteredData = globalStudentsData.filter(s => s.helperRole === helperFilter);
+            }
+
+            // 確保按照班別、班號排序
+            filteredData.sort((a, b) => {
+                if (a.classCode === b.classCode) return a.classNo - b.classNo;
+                return (a.classCode || '').localeCompare(b.classCode || '');
+            });
+
+            if (filteredData.length === 0) {
+                const msg = helperFilter === 'ALL' ? '目前沒有任何學生擔任工作人員' : `目前沒有學生擔任「${helperFilter}」`;
+                tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-gray-500">${msg}</td></tr>`;
+                return;
+            }
+
+            filteredData.forEach(student => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-200 hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="py-3 px-4 text-left font-bold text-blue-800">${student.bibNumber || '-'}</td>
+                    <td class="py-3 px-4 text-left font-medium">${student.classCode || '-'}</td>
+                    <td class="py-3 px-4 text-left">${student.classNo || '-'}</td>
+                    <td class="py-3 px-4 text-left">${student.nameZh || student.nameEn}</td>
+                    <td class="py-3 px-4 text-center">${student.gender || '-'}</td>
+                    <td class="py-3 px-4 text-left font-bold text-yellow-700">${student.helperRole}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
         // ==========================================
         // 管理員編輯彈窗邏輯
         // ==========================================
@@ -798,8 +875,7 @@
                 gradeSelect.value = suggestedGrade;
             }
 
-            // 綁定組別切換事件，更新合法的比賽項目選項
-            gradeSelect.removeEventListener('change', renderAdminEditDropdown); // 避免重複綁定
+            gradeSelect.removeEventListener('change', renderAdminEditDropdown);
             gradeSelect.addEventListener('change', renderAdminEditDropdown);
 
             renderAdminEditDropdown();
@@ -865,7 +941,7 @@
                 if (grade !== currentGrade) {
                     alert(`❌ 報名規則錯誤：\n該學生已報名「${currentGrade}」的項目。\n所有比賽必須為同一組別，不可跨組報名！`);
                     document.getElementById('edit-grade').value = currentGrade;
-                    renderAdminEditDropdown(); // 恢復選單
+                    renderAdminEditDropdown();
                     return;
                 }
             }
@@ -958,7 +1034,6 @@
                         if (numTrack + numField === 0) {
                             helperRole = helperRolesList[Math.floor(Math.random() * helperRolesList.length)];
                         } else {
-                            // 根據性別與組別取得合法的賽項
                             const validEvents = getValidEvents(student.gender, grade);
                             let shuffledTrack = [...validEvents.track].sort(() => 0.5 - Math.random()).slice(0, numTrack);
                             let shuffledField = [...validEvents.field].sort(() => 0.5 - Math.random()).slice(0, numField);
