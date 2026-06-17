@@ -83,7 +83,7 @@
                 <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6 text-sm text-blue-800">
                     <p class="font-bold mb-1">💡 CSV 格式要求：</p>
                     <p>請確保您的 CSV 檔案包含以下標題列 (需完全一致)：<br>
-                    <code class="bg-white px-1 rounded text-red-600">School Yea, Class Code, Class No., Name (English), Name (Chinese), Sex, Login Name, DOB, email</code></p>
+                    <code class="bg-white px-1 rounded text-red-600">School Year, Class Code, Class No., Name (English), Name (Chinese), Sex, Login Name, DOB, email</code></p>
                     <p class="mt-2 text-red-600 font-bold">⚠️ 注意：儲存 CSV 時請務必選擇「UTF-8」編碼，否則中文姓名會變成亂碼！</p>
                 </div>
 
@@ -274,7 +274,7 @@
 
                                 // 將 CSV 欄位映射到資料庫欄位
                                 batch.set(docRef, {
-                                    schoolYear: student['School Yea'] || "",
+                                    schoolYear: student['School Year'] || "",
                                     classCode: student['Class Code'] || "",
                                     classNo: parseInt(student['Class No.']) || 0,
                                     nameEn: student['Name (English)'] || "",
