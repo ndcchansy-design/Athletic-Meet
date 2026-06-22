@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>陸運會賽程表編排系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- 引入 html2pdf.js 用於生成 PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
+        
+        /* 編輯模式下的表格樣式 */
+        .editable-cell {
+            transition: background-color 0.2s;
+            outline: none;
+        }
+        .editable-cell:hover { background-color: #eef2ff; cursor: text; }
+        .editable-cell:focus { background-color: #fffacd; border-bottom: 2px solid #3b82f6; }
+        
+        /* 列操作按鈕隱藏與顯示 */
+        .row-actions { opacity: 0; transition: opacity 0.2s; }
+        tr:hover .row-actions { opacity: 1; }
+
+        /* 列印/PDF 專用樣式 */
+        @media print, .pdf-mode {
+            body { background-color: white; }
+            .no-print { display: none !important; }
+            .pdf-container { 
+                width: 100% !important; 
+                max-width: none !important; 
+                padding: 0 !important; 
+                margin: 0 !important; 
+            }
+            table { width: 100%; border-collapse: collapse; font-size: 12pt; }
+            th, td { border: 1px solid #000; padding: 4px 8px; text-align: center; color: #000; }
+            th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; }
+            .divider-row td { background-color: #e5e7eb !important; font-weight: bold; -webkit-print-color-adjust: exact; }
+            .page-break { page-break-before: always; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 頂部導覽列 (不列印) -->
+    <nav class="bg-blue-800 text-white shadow-lg no-print sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="text-xl font-bold flex items-center">
+                <i class="fas fa-calendar-alt mr-2"></i>
+                <span>陸運會賽程表編排工具</span>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="resetToDefault()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded text-sm transition shadow flex items-center">
+                    <i class="fas fa-undo mr-2"></i> 載入預設範本
+                </button>
+                <button onclick="saveData()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm transition shadow flex items-center">
+                    <i class="fas fa-save mr-2"></i> 暫存草稿
+                </button>
+                <button onclick="exportPDF()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm font-bold transition shadow flex items-center">
+                    <i class="fas fa-file-pdf mr-2"></i> 匯出 A4 PDF
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-5xl mx-auto px-4 py-6 no-print">
+        <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-6 rounded shadow-sm text-blue-800 text-sm">
+            <p class="font-bold mb-1"><i class="fas fa-info-circle mr-1"></i> 使用說明：</p>
+            <ul class="list-disc list-inside space-y-1 ml-2">
+                <li>直接點擊表格內的文字即可進行修改。</li>
+                <li>游標移至表格最右側，可點擊 <i class="fas fa-plus text-green-600"></i> 新增一列，或 <i class="fas fa-trash text-red-600"></i> 刪除該列。</li>
+                <li>「項目」編號會自動計算，無需手動輸入。</li>
+                <li>已根據您的要求，在 Day 1 午飯後加入 100m跨欄初賽，Day 2 早上加入 100m跨欄決賽。</li>
+            </ul>
+        </div>
+
+        <!-- 頁籤切換 -->
+        <div class="flex border-b border-gray-300 mb-4">
+            <button onclick="switchTab(1)" id="tab-btn-1" class="px-6 py-3 font-bold text-blue-800 border-b-4 border-blue-800 focus:outline-none">第一天 (初賽日)</button>
+            <button onclick="switchTab(2)" id="tab-btn-2" class="px-6 py-3 font-bold text-gray-500 border-b-4 border-transparent hover:text-blue-800 focus:outline-none">第二天 (決賽日)</button>
+            <button onclick="switchTab('all')" id="tab-btn-all" class="px-6 py-3 font-bold text-gray-500 border-b-4 border-transparent hover:text-blue-800 focus:outline-none">預覽全部 (PDF排版)</button>
+        </div>
+    </div>
+
+    <!-- 賽程表主體 (用於編輯與匯出 PDF) -->
+    <div id="pdf-content" class="max-w-5xl mx-auto bg-white shadow-xl rounded-lg mb-10 pdf-container">
+        
+        <!-- Day 1 區塊 -->
+        <div id="day-1-container" class="p-8">
+            <div class="text-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-800" contenteditable="true">初賽日程序表 12/12/2025</h1>
+            </div>
+            <table class="w-full text-sm text-gray-800 border-collapse border border-gray-300" id="table-day-1">
+                <thead class="bg-gray-100 text-gray-700">
+                    <tr>
+                        <th class="border border-gray-300 py-2 px-2 w-12">項目</th>
+                        <th class="border border-gray-300 py-2 px-2 w-20">時間</th>
+                        <th class="border border-gray-300 py-2 px-2 w-24">徑項</th>
+                        <th class="border border-gray-300 py-2 px-2 w-24">田項</th>
+                        <th class="border border-gray-300 py-2 px-2 w-24">女子組</th>
+                        <th class="border border-gray-300 py-2 px-2 w-24">男子組</th>
+                        <th class="border border-gray-300 py-2 px-2 w-16">初賽</th>
+                        <th class="border border-gray-300 py-2 px-2 w-16">決賽</th>
+                        <th class="py-2 px-1 w-16 border-none bg-white no-print">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-day-1">
+                    <!-- 由 JS 動態生成 -->
+                </tbody>
+            </table>
+            <div class="text-center mt-4 text-gray-600 font-bold" contenteditable="true">
+                初 賽 日 完 結 (16:00)
+            </div>
+        </div>
+
+        <!-- 分頁符號 (列印時生效) -->
+        <div class="html2pdf__page-break"></div>
+
+        <!-- Day 2 區塊 -->
+        <div id="day-2-container" class="p-8 hidden">
+            <div class="text-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-800" contenteditable="true">決賽日程序表 15/12/2025</h1>
+            </div>
+            <table class="w-full text-sm text-gray-800 border-collapse border border-gray-300" id="table-day-2">
+                <thead class="bg-gray-100 text-gray-700">
+                    <tr>
+                        <th class="border border-gray-300 py-2 px-2 w-12">項目</th>
+                        <th class="border border-gray-300 py-2 px-2 w-20">時間</th>
+                        <th class="border border-gray-300 py-2 px-2 w-24">徑項</th>
+                        <th class="border border-gray-300 py-2 px-2 w-24">田項</th>
+                        <th class="border border-gray-300 py-2 px-2 w-24">女子組</th>
+                        <th class="border border-gray-300 py-2 px-2 w-24">男子組</th>
+                        <th class="border border-gray-300 py-2 px-2 w-16">初賽</th>
+                        <th class="border border-gray-300 py-2 px-2 w-16">決賽</th>
+                        <th class="py-2 px-1 w-16 border-none bg-white no-print">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-day-2">
+                    <!-- 由 JS 動態生成 -->
+                </tbody>
+            </table>
+            <div class="text-center mt-6 text-gray-600 font-bold" contenteditable="true">
+                11:45 頒 獎 典 禮<br><br>
+                決 賽 日 完 結 (13:00)
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ==========================================
+        // 預設賽程資料 (根據 OCR 加上 100m跨欄)
+        // ==========================================
+        const defaultData = [
+            // --- Day 1 ---
+            { day: 1, type: 'event', time: '08:50', track: '', field: '鐵餅', girls: '女子乙組', boys: '', heat: '', final: '7' },
+            { day: 1, type: 'event', time: '08:50', track: '', field: '鉛球', girls: '女子丙組', boys: '', heat: '', final: '3' },
+            { day: 1, type: 'event', time: '08:55', track: '400m', field: '', girls: '', boys: '男子丙組', heat: '', final: '8' },
+            { day: 1, type: 'event', time: '08:55', track: '400m', field: '', girls: '', boys: '男子乙組', heat: '', final: '3' },
+            { day: 1, type: 'event', time: '09:00', track: '400m', field: '', girls: '', boys: '男子甲組', heat: 'H2', final: '' },
+            { day: 1, type: 'event', time: '09:05', track: '400m', field: '', girls: '女子丙組', boys: '', heat: '', final: '3' },
+            { day: 1, type: 'event', time: '09:05', track: '400m', field: '', girls: '女子乙組', boys: '', heat: '', final: '5' },
+            { day: 1, type: 'event', time: '09:05', track: '', field: '跳高', girls: '', boys: '男子丙組', heat: '', final: '8' },
+            { day: 1, type: 'event', time: '09:10', track: '400m', field: '', girls: '女子甲組', boys: '', heat: '', final: '5' },
+            { day: 1, type: 'event', time: '09:10', track: '', field: '跳遠', girls: '', boys: '男子甲組', heat: '', final: '16' },
+            { day: 1, type: 'event', time: '09:15', track: '', field: '標槍', girls: '女子甲組', boys: '', heat: '', final: '26' },
+            { day: 1, type: 'event', time: '09:20', track: '100m', field: '', girls: '女子丙組', boys: '', heat: 'H4', final: '' },
+            { day: 1, type: 'event', time: '09:35', track: '100m', field: '', girls: '女子乙組', boys: '', heat: 'H3', final: '' },
+            { day: 1, type: 'event', time: '09:45', track: '100m', field: '', girls: '女子甲組', boys: '', heat: 'H3', final: '' },
+            { day: 1, type: 'event', time: '09:50', track: '', field: '鐵餅', girls: '', boys: '男子乙組', heat: '', final: '9' },
+            { day: 1, type: 'event', time: '10:00', track: '100m', field: '', girls: '', boys: '男子丙組', heat: 'H5', final: '' },
+            { day: 1, type: 'event', time: '10:05', track: '', field: '跳遠', girls: '女子乙組', boys: '', heat: '', final: '16' },
+            { day: 1, type: 'event', time: '10:15', track: '100m', field: '', girls: '', boys: '男子乙組', heat: 'H3', final: '' },
+            { day: 1, type: 'event', time: '10:15', track: '', field: '壘球', girls: '女子丙組', boys: '', heat: '', final: '9' },
+            { day: 1, type: 'event', time: '10:25', track: '100m', field: '', girls: '', boys: '男子甲組', heat: 'H2', final: '' },
+            { day: 1, type: 'event', time: '10:30', track: '', field: '鉛球', girls: '', boys: '男子乙組', heat: '', final: '12' },
+            { day: 1, type: 'event', time: '10:35', track: '', field: '跳高', girls: '', boys: '男子乙組', heat: '', final: '9' },
+            { day: 1, type: 'event', time: '10:40', track: '1500m', field: '', girls: '女子乙組', boys: '', heat: '', final: '3' },
+            { day: 1, type: 'event', time: '10:40', track: '', field: '鐵餅', girls: '', boys: '男子丙組', heat: '', final: '9' },
+            { day: 1, type: 'event', time: '10:50', track: '1500m', field: '', girls: '女子甲組', boys: '', heat: '', final: '11' },
+            { day: 1, type: 'event', time: '11:00', track: '1500m', field: '', girls: '', boys: '男子乙組', heat: '', final: '6' },
+            { day: 1, type: 'event', time: '11:05', track: '', field: '壘球', girls: '', boys: '男子丙組', heat: '', final: '10' },
+            { day: 1, type: 'event', time: '11:10', track: '1500m', field: '', girls: '', boys: '男子甲組', heat: '', final: '14' },
+            
+            // 午膳分隔線
+            { day: 1, type: 'divider', time: '11:30 - 13:00', text: '午 膳 時 段' },
+
+            // 新增：100m 跨欄 初賽 (午飯後)
+            { day: 1, type: 'event', time: '13:10', track: '100m跨欄', field: '', girls: '女子各組', boys: '男子各組', heat: 'H', final: '' },
+
+            { day: 1, type: 'event', time: '13:20', track: '', field: '壘球', girls: '女子乙組', boys: '', heat: '', final: '12' },
+            { day: 1, type: 'event', time: '13:20', track: '', field: '跳高', girls: '', boys: '男子甲組', heat: '', final: '8' },
+            { day: 1, type: 'event', time: '13:25', track: '', field: '跳遠', girls: '女子甲組', boys: '', heat: '', final: '7' },
+            { day: 1, type: 'event', time: '13:25', track: '', field: '鉛球', girls: '', boys: '男子甲組', heat: '', final: '19' },
+            { day: 1, type: 'event', time: '13:30', track: '200m', field: '', girls: '女子丙組', boys: '', heat: '', final: '5' },
+            { day: 1, type: 'event', time: '13:35', track: '', field: '跳遠', girls: '', boys: '男子丙組', heat: '', final: '24' },
+            { day: 1, type: 'event', time: '13:35', track: '200m', field: '', girls: '女子乙組', boys: '', heat: 'H2', final: '' },
+            { day: 1, type: 'event', time: '13:40', track: '200m', field: '', girls: '女子甲組', boys: '', heat: 'H2', final: '' },
+            { day: 1, type: 'event', time: '13:45', track: '200m', field: '', girls: '', boys: '男子丙組', heat: 'H2', final: '' },
+            { day: 1, type: 'event', time: '13:45', track: '', field: '鐵餅', girls: '女子甲組', boys: '', heat: '', final: '10' },
+            { day: 1, type: 'event', time: '13:50', track: '200m', field: '', girls: '', boys: '男子乙組', heat: 'H2', final: '' },
+            { day: 1, type: 'event', time: '13:55', track: '200m', field: '', girls: '', boys: '男子甲組', heat: '', final: '7' },
+            { day: 1, type: 'event', time: '14:00', track: '', field: '鉛球', girls: '', boys: '男子丙組', heat: '', final: '8' },
+            { day: 1, type: 'event', time: '14:00', track: '', field: '標槍', girls: '', boys: '男子甲組', heat: '', final: '26' },
+            { day: 1, type: 'event', time: '14:05', track: '中一女子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 1, type: 'event', time: '14:15', track: '中二女子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 1, type: 'event', time: '14:25', track: '中三女子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 1, type: 'event', time: '14:35', track: '中四女子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 1, type: 'event', time: '14:45', track: '中五女子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 1, type: 'event', time: '14:55', track: '中六女子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 1, type: 'event', time: '15:05', track: '男子4x100m學會', field: '', girls: '', boys: '', heat: 'H2', final: '' },
+            { day: 1, type: 'event', time: '15:15', track: '女子4x100m學會', field: '', girls: '', boys: '', heat: 'H2', final: '' },
+            { day: 1, type: 'event', time: '15:25', track: '師生接力', field: '', girls: '', boys: '', heat: 'H2', final: '' },
+            { day: 1, type: 'event', time: '15:35', track: '校友接力', field: '', girls: '', boys: '', heat: 'H2', final: '' },
+            { day: 1, type: 'divider', time: '15:40', text: '頒 獎' },
+
+            // --- Day 2 ---
+            // 新增：100m 跨欄 決賽 (第二天一早)
+            { day: 2, type: 'event', time: '08:30', track: '100m跨欄', field: '', girls: '女子各組', boys: '男子各組', heat: '', final: 'F' },
+
+            { day: 2, type: 'event', time: '08:40', track: '', field: '標槍', girls: '', boys: '男子乙組', heat: '', final: '8' },
+            { day: 2, type: 'event', time: '08:40', track: '', field: '跳高', girls: '女子甲組', boys: '', heat: '', final: '11' },
+            { day: 2, type: 'event', time: '08:45', track: '', field: '鉛球', girls: '女子甲組', boys: '', heat: '', final: '17' },
+            { day: 2, type: 'event', time: '08:55', track: '400m', field: '', girls: '', boys: '男子甲組', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '09:00', track: '100m', field: '', girls: '女子丙組', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '09:00', track: '100m', field: '', girls: '女子乙組', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '09:05', track: '100m', field: '', girls: '女子甲組', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '09:05', track: '100m', field: '', girls: '', boys: '男子丙組', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '09:10', track: '100m', field: '', girls: '', boys: '男子乙組', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '09:10', track: '100m', field: '', girls: '', boys: '男子甲組', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '09:15', track: '', field: '跳高', girls: '女子乙組', boys: '', heat: '', final: '3' },
+            { day: 2, type: 'event', time: '09:15', track: '', field: '跳遠', girls: '', boys: '男子乙組', heat: '', final: '13' },
+            { day: 2, type: 'event', time: '09:20', track: '800m', field: '', girls: '女子乙組', boys: '', heat: '', final: '4' },
+            { day: 2, type: 'event', time: '09:20', track: '', field: '鐵餅', girls: '', boys: '男子甲組', heat: '', final: '17' },
+            { day: 2, type: 'event', time: '09:25', track: '', field: '跳遠', girls: '女子丙組', boys: '', heat: '', final: '12' },
+            { day: 2, type: 'event', time: '09:25', track: '800m', field: '', girls: '女子甲組', boys: '', heat: '', final: '3' },
+            { day: 2, type: 'event', time: '09:30', track: '800m', field: '', girls: '', boys: '男子丙組', heat: '', final: '7' },
+            { day: 2, type: 'event', time: '09:35', track: '', field: '鉛球', girls: '女子乙組', boys: '', heat: '', final: '10' },
+            { day: 2, type: 'event', time: '09:35', track: '800m', field: '', girls: '', boys: '男子乙組', heat: '', final: '7' },
+            { day: 2, type: 'event', time: '09:40', track: '800m', field: '', girls: '', boys: '男子甲組', heat: '', final: '12' },
+            { day: 2, type: 'event', time: '09:50', track: '200m', field: '', girls: '女子乙組', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '09:50', track: '200m', field: '', girls: '女子甲組', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '09:55', track: '200m', field: '', girls: '', boys: '男子丙組', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '09:55', track: '200m', field: '', girls: '', boys: '男子乙組', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '10:05', track: '中一男子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '10:15', track: '中二男子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '10:25', track: '中三男子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '10:35', track: '中四男子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '10:45', track: '中五男子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '10:55', track: '中六男子4x100m', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '11:05', track: '女子4x100m學會', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '11:15', track: '男子4x100m學會', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '11:25', track: '師生接力', field: '', girls: '', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '11:35', track: '校友接力', field: '', girls: '', boys: '', heat: '', final: 'F' }
+        ];
+
+        let appData = [];
+        let itemCounter = 1; // 全域項目計數器
+
+        // 初始化
+        window.onload = () => {
+            const saved = localStorage.getItem('sportsDaySchedule');
+            if (saved) {
+                appData = JSON.parse(saved);
+            } else {
+                appData = JSON.parse(JSON.stringify(defaultData));
+            }
+            renderTables();
+        };
+
+        // 渲染表格
+        function renderTables() {
+            itemCounter = 1;
+            const tbody1 = document.getElementById('tbody-day-1');
+            const tbody2 = document.getElementById('tbody-day-2');
+            tbody1.innerHTML = '';
+            tbody2.innerHTML = '';
+
+            appData.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-gray-200 hover:bg-gray-50 group";
+                
+                if (row.type === 'divider') {
+                    tr.className += " bg-gray-100 font-bold divider-row";
+                    tr.innerHTML = `
+                        <td class="border border-gray-300 py-2 px-2 text-center text-gray-500">-</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="updateData(${index}, 'time', this.innerText)">${row.time || ''}</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" colspan="6" onblur="updateData(${index}, 'text', this.innerText)">${row.text}</td>
+                        <td class="py-2 px-1 text-center no-print border-none bg-transparent">
+                            <div class="row-actions flex justify-center gap-2">
+                                <button onclick="addRow(${index}, ${row.day})" class="text-green-600 hover:text-green-800" title="在此下方新增"><i class="fas fa-plus"></i></button>
+                                <button onclick="deleteRow(${index})" class="text-red-500 hover:text-red-700" title="刪除"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    `;
+                } else {
+                    tr.innerHTML = `
+                        <td class="border border-gray-300 py-2 px-2 text-center font-medium">${itemCounter++}</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="updateData(${index}, 'time', this.innerText)">${row.time}</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="updateData(${index}, 'track', this.innerText)">${row.track}</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="updateData(${index}, 'field', this.innerText)">${row.field}</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="updateData(${index}, 'girls', this.innerText)">${row.girls}</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="updateData(${index}, 'boys', this.innerText)">${row.boys}</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="updateData(${index}, 'heat', this.innerText)">${row.heat}</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="updateData(${index}, 'final', this.innerText)">${row.final}</td>
+                        <td class="py-2 px-1 text-center no-print border-none bg-transparent">
+                            <div class="row-actions flex justify-center gap-2">
+                                <button onclick="addRow(${index}, ${row.day})" class="text-green-600 hover:text-green-800" title="在此下方新增"><i class="fas fa-plus"></i></button>
+                                <button onclick="deleteRow(${index})" class="text-red-500 hover:text-red-700" title="刪除"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    `;
+                }
+
+                if (row.day === 1) tbody1.appendChild(tr);
+                else tbody2.appendChild(tr);
+            });
+        }
+
+        // 更新資料陣列
+        function updateData(index, field, value) {
+            appData[index][field] = value.trim();
+        }
+
+        // 新增列
+        function addRow(index, day) {
+            const newRow = { day: day, type: 'event', time: '', track: '', field: '', girls: '', boys: '', heat: '', final: '' };
+            appData.splice(index + 1, 0, newRow);
+            renderTables();
+        }
+
+        // 刪除列
+        function deleteRow(index) {
+            if(confirm('確定要刪除此列嗎？後續項目的編號將會自動重新計算。')) {
+                appData.splice(index, 1);
+                renderTables();
+            }
+        }
+
+        // 儲存草稿
+        function saveData() {
+            localStorage.setItem('sportsDaySchedule', JSON.stringify(appData));
+            alert('✅ 賽程表已暫存至瀏覽器！');
+        }
+
+        // 載入預設
+        function resetToDefault() {
+            if(confirm('警告：這將會清除您目前所有的修改，並還原為預設範本。確定嗎？')) {
+                appData = JSON.parse(JSON.stringify(defaultData));
+                localStorage.removeItem('sportsDaySchedule');
+                renderTables();
+            }
+        }
+
+        // 切換分頁
+        function switchTab(tab) {
+            const btn1 = document.getElementById('tab-btn-1');
+            const btn2 = document.getElementById('tab-btn-2');
+            const btnAll = document.getElementById('tab-btn-all');
+            const day1 = document.getElementById('day-1-container');
+            const day2 = document.getElementById('day-2-container');
+
+            // Reset styles
+            [btn1, btn2, btnAll].forEach(btn => {
+                btn.classList.remove('text-blue-800', 'border-blue-800');
+                btn.classList.add('text-gray-500', 'border-transparent');
+            });
+
+            if (tab === 1) {
+                btn1.classList.add('text-blue-800', 'border-blue-800');
+                btn1.classList.remove('text-gray-500', 'border-transparent');
+                day1.classList.remove('hidden');
+                day2.classList.add('hidden');
+            } else if (tab === 2) {
+                btn2.classList.add('text-blue-800', 'border-blue-800');
+                btn2.classList.remove('text-gray-500', 'border-transparent');
+                day1.classList.add('hidden');
+                day2.classList.remove('hidden');
+            } else {
+                btnAll.classList.add('text-blue-800', 'border-blue-800');
+                btnAll.classList.remove('text-gray-500', 'border-transparent');
+                day1.classList.remove('hidden');
+                day2.classList.remove('hidden');
+            }
+        }
+
+        // 匯出 PDF
+        function exportPDF() {
+            // 確保匯出前顯示所有內容
+            document.getElementById('day-1-container').classList.remove('hidden');
+            document.getElementById('day-2-container').classList.remove('hidden');
+            
+            // 加上 pdf-mode class 觸發 CSS 隱藏按鈕與調整邊距
+            const element = document.getElementById('pdf-content');
+            element.classList.add('pdf-mode');
+
+            const opt = {
+                margin:       [10, 10, 10, 10], // 上右下左 margin (mm)
+                filename:     '陸運會賽程表_2025.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // 顯示載入中
+            const btn = event.currentTarget;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 產生中...';
+            btn.disabled = true;
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                // 恢復原狀
+                element.classList.remove('pdf-mode');
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                // 切回原本的 Tab (預設切回 Day 1)
+                switchTab(1);
+            });
+        }
+    </script>
+</body>
+</html>
