@@ -37,7 +37,7 @@
         <!-- 登入畫面 -->
         <div id="view-login" class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-md mt-10 border-t-4 border-blue-800">
             <h2 class="text-2xl font-bold text-center mb-2 text-gray-800">系統登入</h2>
-            <p class="text-gray-500 text-sm text-center mb-8">二零二五年度陸運會</p>
+            <p class="text-gray-500 text-sm text-center mb-8">陸運會報名及計分系統</p>
             
             <button onclick="simulateLogin('student')" class="w-full mb-4 flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-3 rounded-lg shadow-sm hover:bg-gray-50 transition font-medium">
                 <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" class="w-5 h-5" alt="Google">
@@ -88,7 +88,7 @@
                 <!-- 工作人員區塊 -->
                 <div id="helper-section" class="mb-6 p-5 bg-yellow-50 border border-yellow-300 rounded-lg hidden shadow-sm">
                     <h3 class="text-lg font-bold text-yellow-800 mb-2"><i class="fas fa-hands-helping mr-2"></i>大會工作人員報名</h3>
-                    <p class="text-sm text-yellow-700 mb-4">由於您未報名任何田徑項目，必須報名成為工作人員 (可為班級增加 2 分累積分)。</p>
+                    <p class="text-sm text-yellow-700 mb-4">由於您未報名任何田徑項目，必須報名成為工作人員 (可為班級增加 <span id="helper-score-text" class="font-bold text-red-600">2</span> 分累積分)。</p>
                     <select id="helper-select" class="w-full md:w-1/2 border border-yellow-400 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500">
                         <option value="">請選擇工作崗位...</option>
                         <option value="司令台">司令台</option>
@@ -131,7 +131,7 @@
                 <button onclick="switchAdminTab('tab-overview')" class="admin-tab whitespace-nowrap px-6 py-3 font-bold text-blue-800 border-b-4 border-blue-800"><i class="fas fa-users mr-1"></i> 報名概覽</button>
                 <button onclick="switchAdminTab('tab-event-query')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-search mr-1"></i> 項目查詢</button>
                 <button onclick="switchAdminTab('tab-helper-query')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-hands-helping mr-1"></i> 工作人員查詢</button>
-                <button onclick="switchAdminTab('tab-upload')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-cloud-upload-alt mr-1"></i> 上傳資料與設定</button>
+                <button onclick="switchAdminTab('tab-upload')" class="admin-tab whitespace-nowrap px-6 py-3 text-gray-500 hover:text-blue-800 border-b-4 border-transparent"><i class="fas fa-cogs mr-1"></i> 上傳資料與設定</button>
             </div>
 
             <!-- 報名概覽 Tab -->
@@ -144,7 +144,7 @@
                             <option value="ALL">顯示所有班別</option>
                         </select>
                         
-                        <!-- 新增：狀態篩選 -->
+                        <!-- 狀態篩選 -->
                         <select id="status-filter" onchange="renderOverviewTable()" class="border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
                             <option value="ALL">所有狀態</option>
                             <option value="UNREGISTERED">🔴 未報名</option>
@@ -218,7 +218,6 @@
                     <div class="flex items-center gap-3 w-full md:w-auto">
                         <select id="helper-filter" onchange="renderHelperQueryTable()" class="border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-80">
                             <option value="">-- 請選擇工作崗位 --</option>
-                            <!-- 選項由 JS 動態生成 -->
                         </select>
                     </div>
                 </div>
@@ -242,23 +241,22 @@
                 </div>
             </div>
 
-            <!-- 上傳資料 Tab -->
+            <!-- 上傳資料與設定 Tab -->
             <div id="tab-upload" class="admin-content hidden bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
-                <h2 class="text-xl font-bold mb-4 text-gray-800"><i class="fas fa-cloud-upload-alt mr-2 text-blue-600"></i>匯入學生名單 (CSV) 到 Firebase</h2>
                 
+                <!-- 區塊 1：上傳名單 -->
+                <h2 class="text-xl font-bold mb-4 text-gray-800"><i class="fas fa-cloud-upload-alt mr-2 text-blue-600"></i>匯入學生名單 (CSV) 到 Firebase</h2>
                 <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6 text-sm text-blue-800">
                     <p class="font-bold mb-1">💡 CSV 格式要求：</p>
                     <p>請確保您的 CSV 檔案包含以下標題列 (需完全一致)：<br>
                     <code class="bg-white px-1 rounded text-red-600">School Year, Class Code, Class No., Name (English), Name (Chinese), Sex, Login Name, DOB, email</code></p>
                 </div>
-
                 <div class="flex items-center gap-4 mb-4">
                     <input type="file" id="csv-file" accept=".csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border rounded-md p-1">
                     <button onclick="processCSV()" id="upload-btn" class="bg-green-600 hover:bg-green-700 text-white px-8 py-2 rounded shadow transition font-bold whitespace-nowrap flex items-center">
                         <i class="fas fa-database mr-2"></i> 開始匯入
                     </button>
                 </div>
-
                 <div id="upload-status" class="hidden mt-4 p-4 rounded-lg border">
                     <div class="flex items-center justify-between mb-2">
                         <span id="status-text" class="font-bold text-gray-700">準備中...</span>
@@ -269,6 +267,77 @@
                     </div>
                     <div id="status-log" class="mt-3 text-xs text-gray-500 h-32 overflow-y-auto bg-gray-50 p-2 border rounded font-mono"></div>
                 </div>
+
+                <hr class="my-8 border-gray-200">
+
+                <!-- 區塊 2：系統年度與計分設定 -->
+                <h2 class="text-xl font-bold mb-4 text-gray-800"><i class="fas fa-cogs mr-2 text-purple-600"></i>系統年度與計分設定</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- 年份界限設定 -->
+                    <div class="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+                        <h3 class="font-bold text-lg mb-4 text-purple-800 border-b pb-2">組別年份界限</h3>
+                        <p class="text-sm text-gray-500 mb-4">設定各組別的出生年份界限。系統會自動將較年長的學生歸為甲組。</p>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-bold text-gray-700 mb-1">丙組 (C Grade) 起始年份</label>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="set-grade-c" class="border border-gray-300 rounded px-3 py-2 w-32 focus:outline-none focus:border-purple-500">
+                                <span class="text-sm text-gray-600">年或以後出生</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-bold text-gray-700 mb-1">乙組 (B Grade) 起始年份</label>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="set-grade-b" class="border border-gray-300 rounded px-3 py-2 w-32 focus:outline-none focus:border-purple-500">
+                                <span class="text-sm text-gray-600">年至丙組前出生</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 計分規則設定 -->
+                    <div class="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+                        <h3 class="font-bold text-lg mb-4 text-green-800 border-b pb-2">計分方法設定</h3>
+                        
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-3 mb-4">
+                            <div><label class="text-xs text-gray-600">第 1 名得分</label><input type="number" id="set-score-1" class="border rounded px-2 py-1 w-full mt-1"></div>
+                            <div><label class="text-xs text-gray-600">第 2 名得分</label><input type="number" id="set-score-2" class="border rounded px-2 py-1 w-full mt-1"></div>
+                            <div><label class="text-xs text-gray-600">第 3 名得分</label><input type="number" id="set-score-3" class="border rounded px-2 py-1 w-full mt-1"></div>
+                            <div><label class="text-xs text-gray-600">第 4 名得分</label><input type="number" id="set-score-4" class="border rounded px-2 py-1 w-full mt-1"></div>
+                            <div><label class="text-xs text-gray-600">第 5 名得分</label><input type="number" id="set-score-5" class="border rounded px-2 py-1 w-full mt-1"></div>
+                            <div><label class="text-xs text-gray-600">第 6 名得分</label><input type="number" id="set-score-6" class="border rounded px-2 py-1 w-full mt-1"></div>
+                            <div><label class="text-xs text-gray-600">第 7 名得分</label><input type="number" id="set-score-7" class="border rounded px-2 py-1 w-full mt-1"></div>
+                            <div><label class="text-xs text-gray-600">第 8 名得分</label><input type="number" id="set-score-8" class="border rounded px-2 py-1 w-full mt-1"></div>
+                        </div>
+
+                        <div class="border-t pt-3 grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">參與分 (每項)</label>
+                                <input type="number" id="set-score-part" class="border rounded px-2 py-1 w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-red-600 mb-1">缺席扣分 (每項)</label>
+                                <input type="number" id="set-score-abs" class="border rounded px-2 py-1 w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-blue-600 mb-1">破紀錄加分</label>
+                                <input type="number" id="set-score-rec" class="border rounded px-2 py-1 w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-yellow-600 mb-1">工作人員加分</label>
+                                <input type="number" id="set-score-help" class="border rounded px-2 py-1 w-full">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button onclick="saveSystemSettings()" id="save-settings-btn" class="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-lg shadow-md transition font-bold flex items-center">
+                        <i class="fas fa-save mr-2"></i> 儲存系統設定
+                    </button>
+                </div>
+
             </div>
         </div>
     </div>
@@ -284,7 +353,6 @@
             </div>
             
             <div class="p-6 overflow-y-auto">
-                <!-- 學生基本資訊 -->
                 <div class="mb-4 flex items-center gap-4 border-b pb-4">
                     <div class="bg-blue-100 text-blue-800 rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl">
                         <i class="fas fa-user"></i>
@@ -296,7 +364,6 @@
                     </div>
                 </div>
 
-                <!-- 報名規則提示 -->
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-4 text-sm text-blue-800">
                     <ul class="list-disc list-inside space-y-1 ml-1 text-xs font-medium">
                         <li>所有報名項目必須為<strong>同一組別</strong>（不可跨組）。</li>
@@ -304,31 +371,22 @@
                     </ul>
                 </div>
 
-                <!-- 目前已報名項目 -->
                 <div class="mb-4">
                     <label class="block text-sm font-bold text-gray-700 mb-2">目前已報名比賽項目：</label>
-                    <div id="edit-current-events" class="flex flex-wrap gap-2 min-h-[40px] p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <!-- 標籤將由 JS 動態生成 -->
-                    </div>
+                    <div id="edit-current-events" class="flex flex-wrap gap-2 min-h-[40px] p-3 bg-gray-50 rounded-lg border border-gray-200"></div>
                 </div>
 
-                <!-- 新增項目區塊 -->
                 <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4 shadow-sm">
                     <label class="block text-sm font-bold text-blue-800 mb-2">新增比賽項目：</label>
                     <div class="flex flex-col sm:flex-row gap-2">
-                        <select id="edit-grade" class="border border-gray-300 rounded px-3 py-2 bg-white flex-1 focus:outline-none focus:border-blue-500">
-                            <!-- 選項將由 JS 動態生成 (根據學生年齡限制) -->
-                        </select>
-                        <select id="edit-event" class="border border-gray-300 rounded px-3 py-2 bg-white flex-1 focus:outline-none focus:border-blue-500">
-                            <!-- 選項由 JS 動態生成 (根據性別與組別) -->
-                        </select>
+                        <select id="edit-grade" class="border border-gray-300 rounded px-3 py-2 bg-white flex-1 focus:outline-none focus:border-blue-500"></select>
+                        <select id="edit-event" class="border border-gray-300 rounded px-3 py-2 bg-white flex-1 focus:outline-none focus:border-blue-500"></select>
                         <button onclick="addEventToModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition whitespace-nowrap">
                             <i class="fas fa-plus mr-1"></i> 新增
                         </button>
                     </div>
                 </div>
 
-                <!-- 工作人員區塊 -->
                 <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300 shadow-sm">
                     <label class="block text-sm font-bold text-yellow-800 mb-2"><i class="fas fa-hands-helping mr-1"></i> 大會工作人員崗位：</label>
                     <select id="edit-helper" class="w-full border border-yellow-400 rounded px-3 py-2 bg-white focus:outline-none focus:border-yellow-500">
@@ -348,11 +406,9 @@
                         <option value="獎品">獎品</option>
                         <option value="攝影">攝影</option>
                     </select>
-                    <p class="text-xs text-yellow-700 mt-2">註：通常未報名比賽項目的學生才需擔任工作人員。</p>
                 </div>
             </div>
 
-            <!-- 底部按鈕 -->
             <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t shrink-0">
                 <button onclick="closeEditModal()" class="px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition">取消</button>
                 <button id="save-edit-btn" onclick="saveStudentEvents()" class="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow transition flex items-center">
@@ -362,10 +418,10 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (加入了 getDoc 和 setDoc) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-        import { getFirestore, doc, writeBatch, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        import { getFirestore, doc, writeBatch, collection, getDocs, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB6N110dVd8_T9tygXEApjTPsQC5HsF0IQ",
@@ -387,6 +443,13 @@
         window.doc = doc;
         window.collection = collection;
         window.getDocs = getDocs;
+        window.getDoc = getDoc;
+        window.setDoc = setDoc;
+
+        // 初始化完成後，載入系統設定
+        if(window.db) {
+            loadSystemSettings();
+        }
     </script>
 
     <script>
@@ -396,24 +459,106 @@
         let globalStudentsData = [];
         let currentUser = null;
         
-        // 用於判斷圖示與顏色的全域清單
+        // 系統預設設定 (若 Firebase 尚未設定，則使用此預設值)
+        let systemSettings = {
+            gradeCYear: 2012,
+            gradeBYear: 2010,
+            score1st: 9, score2nd: 7, score3rd: 6, score4th: 5,
+            score5th: 4, score6th: 3, score7th: 2, score8th: 1,
+            scorePart: 1,    // 參與分
+            scoreAbs: -1,    // 缺席扣分
+            scoreRec: 2,     // 破紀錄加分
+            scoreHelp: 2     // 工作人員加分
+        };
+
         const trackEventsList = ['100M', '100M跨欄', '200M', '400M', '800M', '1500M'];
         const fieldEventsList = ['跳高', '跳遠', '擲鐵餅', '擲標槍', '推鉛球', '擲壘球', '鐵餅', '標槍', '鉛球', '壘球'];
         const helperRolesList = ['司令台', '跳高裁判員', '跳遠裁判員', '鉛球裁判員', '標槍/壘球裁判員', '鐵餅裁判員', '召集處', '司線員', '紀錄員', '計時員', '終點裁判員', '彎道裁判員', '獎品', '攝影'];
         
-        // 模擬學生資料
         const mockStudentData = {
-            loginName: 's2025001',
-            nameZh: '陳小明',
-            nameEn: 'CHAN SIU MING',
-            classCode: '3A',
-            classNo: 1,
-            gender: 'M',
-            dob: '2012-05-01',
-            bibNumber: '3A01'
+            loginName: 's2025001', nameZh: '陳小明', nameEn: 'CHAN SIU MING',
+            classCode: '3A', classNo: 1, gender: 'M', dob: '2012-05-01', bibNumber: '3A01'
         };
 
-        // 核心邏輯：根據性別與組別，回傳合法的比賽項目
+        // ==========================================
+        // 系統設定邏輯 (讀取與儲存)
+        // ==========================================
+        async function loadSystemSettings() {
+            try {
+                const docRef = window.doc(window.db, "settings", "general");
+                const docSnap = await window.getDoc(docRef);
+                if (docSnap.exists()) {
+                    systemSettings = { ...systemSettings, ...docSnap.data() };
+                }
+                updateSettingsUI();
+            } catch (error) {
+                console.error("載入設定失敗：", error);
+            }
+        }
+
+        function updateSettingsUI() {
+            // 更新管理員設定表單
+            document.getElementById('set-grade-c').value = systemSettings.gradeCYear;
+            document.getElementById('set-grade-b').value = systemSettings.gradeBYear;
+            document.getElementById('set-score-1').value = systemSettings.score1st;
+            document.getElementById('set-score-2').value = systemSettings.score2nd;
+            document.getElementById('set-score-3').value = systemSettings.score3rd;
+            document.getElementById('set-score-4').value = systemSettings.score4th;
+            document.getElementById('set-score-5').value = systemSettings.score5th;
+            document.getElementById('set-score-6').value = systemSettings.score6th;
+            document.getElementById('set-score-7').value = systemSettings.score7th;
+            document.getElementById('set-score-8').value = systemSettings.score8th;
+            document.getElementById('set-score-part').value = systemSettings.scorePart;
+            document.getElementById('set-score-abs').value = systemSettings.scoreAbs;
+            document.getElementById('set-score-rec').value = systemSettings.scoreRec;
+            document.getElementById('set-score-help').value = systemSettings.scoreHelp;
+
+            // 更新學生介面的提示文字
+            const helperTextEl = document.getElementById('helper-score-text');
+            if(helperTextEl) helperTextEl.innerText = systemSettings.scoreHelp;
+        }
+
+        async function saveSystemSettings() {
+            if (!window.db) return alert("資料庫未連線！");
+            const btn = document.getElementById('save-settings-btn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 儲存中...';
+            btn.disabled = true;
+
+            try {
+                const newSettings = {
+                    gradeCYear: parseInt(document.getElementById('set-grade-c').value) || 2012,
+                    gradeBYear: parseInt(document.getElementById('set-grade-b').value) || 2010,
+                    score1st: parseInt(document.getElementById('set-score-1').value) || 0,
+                    score2nd: parseInt(document.getElementById('set-score-2').value) || 0,
+                    score3rd: parseInt(document.getElementById('set-score-3').value) || 0,
+                    score4th: parseInt(document.getElementById('set-score-4').value) || 0,
+                    score5th: parseInt(document.getElementById('set-score-5').value) || 0,
+                    score6th: parseInt(document.getElementById('set-score-6').value) || 0,
+                    score7th: parseInt(document.getElementById('set-score-7').value) || 0,
+                    score8th: parseInt(document.getElementById('set-score-8').value) || 0,
+                    scorePart: parseInt(document.getElementById('set-score-part').value) || 0,
+                    scoreAbs: parseInt(document.getElementById('set-score-abs').value) || 0,
+                    scoreRec: parseInt(document.getElementById('set-score-rec').value) || 0,
+                    scoreHelp: parseInt(document.getElementById('set-score-help').value) || 0
+                };
+
+                const docRef = window.doc(window.db, "settings", "general");
+                await window.setDoc(docRef, newSettings, { merge: true });
+                systemSettings = { ...systemSettings, ...newSettings };
+                updateSettingsUI();
+                alert("✅ 系統設定已成功儲存！");
+            } catch (error) {
+                alert("❌ 儲存失敗：" + error.message);
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+
+        // ==========================================
+        // 核心邏輯
+        // ==========================================
         function getValidEvents(gender, grade) {
             const isMale = (gender === 'M' || gender === '男');
             const prefix = isMale ? '男' : '女';
@@ -423,32 +568,28 @@
             let validTrack = ['100M', '100M跨欄', '200M', '400M', '800M', '1500M'];
             let validField = ['跳高', '跳遠', '擲鐵餅', '推鉛球'];
 
-            if (['男甲', '男乙', '女甲'].includes(category)) {
-                validField.push('擲標槍');
-            }
-            if (['男丙', '女乙', '女丙'].includes(category)) {
-                validField.push('擲壘球');
-            }
+            if (['男甲', '男乙', '女甲'].includes(category)) validField.push('擲標槍');
+            if (['男丙', '女乙', '女丙'].includes(category)) validField.push('擲壘球');
 
             return { track: validTrack, field: validField };
         }
 
-        // 核心邏輯：根據學生年齡或班別，計算其合理(預設)的參賽組別
+        // 核心邏輯：根據「系統設定的年份」計算其合理(預設)的參賽組別
         function getStudentDefaultGrade(student) {
             let year = 0;
-            // 優先檢查出生年份
             if (student.dob) {
                 const match = student.dob.match(/\b(19|20)\d{2}\b/);
                 if (match) year = parseInt(match[0]);
             }
             
             if (year > 0) {
-                if (year >= 2012) return '丙組';
-                if (year >= 2010) return '乙組';
+                // 使用動態設定的年份界限
+                if (year >= systemSettings.gradeCYear) return '丙組';
+                if (year >= systemSettings.gradeBYear) return '乙組';
                 return '甲組';
             }
 
-            // 若沒有出生年份，使用班級來推斷 (中一、二為丙組，中三、四為乙組，中五、六為甲組)
+            // 若沒有出生年份，使用班級來推斷 (防呆)
             if (student.classCode) {
                 const form = parseInt(student.classCode.charAt(0));
                 if (!isNaN(form)) {
@@ -457,11 +598,12 @@
                     return '甲組';
                 }
             }
-            
-            return '甲組'; // 預設防呆
+            return '甲組'; 
         }
 
-        // 登入與登出
+        // ==========================================
+        // 登入與介面切換
+        // ==========================================
         function simulateLogin(role) {
             document.getElementById('view-login').classList.add('hidden');
             document.getElementById('nav-user-info').classList.remove('hidden');
@@ -637,7 +779,7 @@
                 try {
                     if (window.db) {
                         const docRef = window.doc(window.db, "students", currentUser.loginName);
-                        await window.writeBatch(window.db).set(docRef, {
+                        await window.setDoc(docRef, {
                             ...currentUser,
                             registeredEvents: selectedEvents,
                             helperRole: helperRole || null,
@@ -695,14 +837,12 @@
                     return (a.classCode || '').localeCompare(b.classCode || '');
                 });
 
-                // 1. 更新班別 Filter
                 const classFilter = document.getElementById('class-filter');
                 const currentClass = classFilter.value;
                 classFilter.innerHTML = '<option value="ALL">顯示所有班別</option>';
                 Array.from(classesSet).sort().forEach(cls => classFilter.innerHTML += `<option value="${cls}">${cls}</option>`);
                 if (Array.from(classesSet).includes(currentClass)) classFilter.value = currentClass;
 
-                // 2. 更新比賽項目 Filter
                 const allValidCombinations = [];
                 ['男', '女'].forEach(g => {
                     ['甲組', '乙組', '丙組'].forEach(grade => {
@@ -720,7 +860,6 @@
                 finalEventsList.forEach(ev => eventFilter.innerHTML += `<option value="${ev}">${ev}</option>`);
                 if (finalEventsList.includes(currentEvent)) eventFilter.value = currentEvent;
 
-                // 3. 更新工作人員 Filter
                 const finalHelpersList = Array.from(new Set([...helperRolesList, ...Array.from(dbHelpersSet)])).filter(Boolean).sort();
                 const helperFilter = document.getElementById('helper-filter');
                 const currentHelper = helperFilter.value;
@@ -739,22 +878,17 @@
         function renderOverviewTable() {
             const tbody = document.getElementById('overview-tbody');
             const classFilter = document.getElementById('class-filter').value;
-            const statusFilter = document.getElementById('status-filter').value; // 取得狀態篩選的值
+            const statusFilter = document.getElementById('status-filter').value;
             tbody.innerHTML = '';
             
             let filteredData = globalStudentsData;
 
-            // 1. 班別篩選
-            if (classFilter !== 'ALL') {
-                filteredData = filteredData.filter(s => s.classCode === classFilter);
-            }
+            if (classFilter !== 'ALL') filteredData = filteredData.filter(s => s.classCode === classFilter);
 
-            // 2. 狀態篩選
             if (statusFilter !== 'ALL') {
                 filteredData = filteredData.filter(student => {
                     const hasEvents = student.registeredEvents && student.registeredEvents.length > 0;
                     const isHelper = student.helperRole && student.helperRole !== "";
-                    
                     if (statusFilter === 'UNREGISTERED') return !hasEvents && !isHelper;
                     if (statusFilter === 'REGISTERED') return hasEvents && !isHelper;
                     if (statusFilter === 'HELPER') return !hasEvents && isHelper;
@@ -860,7 +994,6 @@
                 filteredData = globalStudentsData.filter(s => s.helperRole === helperFilter);
             }
 
-            // 確保按照班別、班號排序
             filteredData.sort((a, b) => {
                 if (a.classCode === b.classCode) return a.classNo - b.classNo;
                 return (a.classCode || '').localeCompare(b.classCode || '');
@@ -907,7 +1040,6 @@
             
             document.getElementById('edit-student-dob').innerHTML = `<i class="fas fa-birthday-cake mr-1"></i>出生日期: ${dobText} <span class="text-blue-600 font-bold ml-2">(系統建議: ${suggestedGrade})</span>`;
 
-            // 動態生成可選組別 (限制不可降組)
             const gradeSelect = document.getElementById('edit-grade');
             gradeSelect.innerHTML = '';
             const gradeOptions = [];
@@ -927,13 +1059,12 @@
                 gradeSelect.appendChild(el);
             });
 
-            // 決定預設選取的組別 (如果已有報名項目，以該項目組別為準)
             if (currentEditingEvents.length > 0) {
                 const firstEvent = currentEditingEvents[0];
                 if (firstEvent.includes('甲組') && gradeOptions.includes('甲組')) gradeSelect.value = '甲組';
                 else if (firstEvent.includes('乙組') && gradeOptions.includes('乙組')) gradeSelect.value = '乙組';
                 else if (firstEvent.includes('丙組') && gradeOptions.includes('丙組')) gradeSelect.value = '丙組';
-                else gradeSelect.value = gradeOptions[0]; // 防呆
+                else gradeSelect.value = gradeOptions[0]; 
             } else {
                 gradeSelect.value = suggestedGrade;
             }
@@ -949,7 +1080,6 @@
         function renderAdminEditDropdown() {
             if (!currentEditingStudent) return;
             const grade = document.getElementById('edit-grade').value;
-            // 這裡會自動根據性別與組別過濾出合法的項目 (例如男甲不會有擲壘球)
             const validEvents = getValidEvents(currentEditingStudent.gender, grade);
             const select = document.getElementById('edit-event');
 
@@ -1041,15 +1171,12 @@
             btn.disabled = true;
 
             try {
-                const batch = window.writeBatch(window.db);
                 const docRef = window.doc(window.db, "students", currentEditingStudent.loginName);
-                
-                batch.update(docRef, {
+                await window.setDoc(docRef, {
                     registeredEvents: currentEditingEvents,
                     helperRole: helperRole,
                     updatedAt: new Date().toISOString()
-                });
-                await batch.commit();
+                }, { merge: true });
                 closeEditModal();
                 await fetchStudentsData();
             } catch (error) {
@@ -1085,7 +1212,6 @@
                         const isMale = (student.gender === 'M' || student.gender === '男');
                         const genderPrefix = isMale ? '男子' : '女子';
                         
-                        // 修正：根據學生的年齡或班別取得合理的組別，而不是完全隨機
                         const grade = getStudentDefaultGrade(student);
                         
                         let numTrack = Math.floor(Math.random() * 3); 
