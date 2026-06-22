@@ -52,10 +52,7 @@
             </div>
             <div class="flex gap-3">
                 <button onclick="resetToDefault()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded text-sm transition shadow flex items-center">
-                    <i class="fas fa-undo mr-2"></i> 載入預設範本
-                </button>
-                <button onclick="saveData()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm transition shadow flex items-center">
-                    <i class="fas fa-save mr-2"></i> 暫存草稿
+                    <i class="fas fa-undo mr-2"></i> 重新載入預設
                 </button>
                 <button onclick="exportPDF()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm font-bold transition shadow flex items-center">
                     <i class="fas fa-file-pdf mr-2"></i> 匯出 A4 PDF
@@ -71,7 +68,7 @@
                 <li>直接點擊表格內的文字即可進行修改。</li>
                 <li>游標移至表格最右側，可點擊 <i class="fas fa-plus text-green-600"></i> 新增一列，或 <i class="fas fa-trash text-red-600"></i> 刪除該列。</li>
                 <li>「項目」編號會自動計算，無需手動輸入。</li>
-                <li>已根據您的要求，在 Day 1 午飯後加入 100m跨欄初賽，Day 2 早上加入 100m跨欄決賽。</li>
+                <li>因預覽環境安全限制，暫存草稿功能已移除。請在編輯完成後直接匯出 PDF，重新整理網頁會恢復預設資料。</li>
             </ul>
         </div>
 
@@ -150,7 +147,7 @@
 
     <script>
         // ==========================================
-        // 預設賽程資料 (根據 OCR 加上 100m跨欄)
+        // 預設賽程資料
         // ==========================================
         const defaultData = [
             // --- Day 1 ---
@@ -186,8 +183,13 @@
             // 午膳分隔線
             { day: 1, type: 'divider', time: '11:30 - 13:00', text: '午 膳 時 段' },
 
-            // 新增：100m 跨欄 初賽 (午飯後)
-            { day: 1, type: 'event', time: '13:10', track: '100m跨欄', field: '', girls: '女子各組', boys: '男子各組', heat: 'H', final: '' },
+            // 修改：100m跨欄 初賽 (分甲乙丙6組)
+            { day: 1, type: 'event', time: '13:00', track: '100m跨欄', field: '', girls: '女子丙組', boys: '', heat: 'H', final: '' },
+            { day: 1, type: 'event', time: '13:05', track: '100m跨欄', field: '', girls: '女子乙組', boys: '', heat: 'H', final: '' },
+            { day: 1, type: 'event', time: '13:10', track: '100m跨欄', field: '', girls: '女子甲組', boys: '', heat: 'H', final: '' },
+            { day: 1, type: 'event', time: '13:15', track: '100m跨欄', field: '', girls: '', boys: '男子丙組', heat: 'H', final: '' },
+            { day: 1, type: 'event', time: '13:20', track: '100m跨欄', field: '', girls: '', boys: '男子乙組', heat: 'H', final: '' },
+            { day: 1, type: 'event', time: '13:25', track: '100m跨欄', field: '', girls: '', boys: '男子甲組', heat: 'H', final: '' },
 
             { day: 1, type: 'event', time: '13:20', track: '', field: '壘球', girls: '女子乙組', boys: '', heat: '', final: '12' },
             { day: 1, type: 'event', time: '13:20', track: '', field: '跳高', girls: '', boys: '男子甲組', heat: '', final: '8' },
@@ -216,8 +218,13 @@
             { day: 1, type: 'divider', time: '15:40', text: '頒 獎' },
 
             // --- Day 2 ---
-            // 新增：100m 跨欄 決賽 (第二天一早)
-            { day: 2, type: 'event', time: '08:30', track: '100m跨欄', field: '', girls: '女子各組', boys: '男子各組', heat: '', final: 'F' },
+            // 修改：100m跨欄 決賽 (分甲乙丙6組)
+            { day: 2, type: 'event', time: '08:30', track: '100m跨欄', field: '', girls: '女子丙組', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '08:35', track: '100m跨欄', field: '', girls: '女子乙組', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '08:40', track: '100m跨欄', field: '', girls: '女子甲組', boys: '', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '08:45', track: '100m跨欄', field: '', girls: '', boys: '男子丙組', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '08:50', track: '100m跨欄', field: '', girls: '', boys: '男子乙組', heat: '', final: 'F' },
+            { day: 2, type: 'event', time: '08:55', track: '100m跨欄', field: '', girls: '', boys: '男子甲組', heat: '', final: 'F' },
 
             { day: 2, type: 'event', time: '08:40', track: '', field: '標槍', girls: '', boys: '男子乙組', heat: '', final: '8' },
             { day: 2, type: 'event', time: '08:40', track: '', field: '跳高', girls: '女子甲組', boys: '', heat: '', final: '11' },
@@ -260,12 +267,7 @@
 
         // 初始化
         window.onload = () => {
-            const saved = localStorage.getItem('sportsDaySchedule');
-            if (saved) {
-                appData = JSON.parse(saved);
-            } else {
-                appData = JSON.parse(JSON.stringify(defaultData));
-            }
+            appData = JSON.parse(JSON.stringify(defaultData));
             renderTables();
         };
 
@@ -338,17 +340,10 @@
             }
         }
 
-        // 儲存草稿
-        function saveData() {
-            localStorage.setItem('sportsDaySchedule', JSON.stringify(appData));
-            alert('✅ 賽程表已暫存至瀏覽器！');
-        }
-
         // 載入預設
         function resetToDefault() {
             if(confirm('警告：這將會清除您目前所有的修改，並還原為預設範本。確定嗎？')) {
                 appData = JSON.parse(JSON.stringify(defaultData));
-                localStorage.removeItem('sportsDaySchedule');
                 renderTables();
             }
         }
