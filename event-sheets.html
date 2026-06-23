@@ -80,15 +80,19 @@
         <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-blue-800">
             <h2 class="text-lg font-bold mb-4 text-gray-800"><i class="fas fa-cogs mr-2"></i>生成設定</h2>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">1. 選擇比賽項目</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">1. 比賽編號 (選填)</label>
+                    <input type="text" id="event-no" placeholder="例如: 01" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">2. 選擇比賽項目</label>
                     <select id="event-select" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">載入資料中...</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">2. 比賽階段</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">3. 比賽階段</label>
                     <select id="stage-select" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="初賽">初賽 / 直接決賽</option>
                         <option value="決賽">決賽 (需手動填寫名單)</option>
@@ -96,14 +100,14 @@
                 </div>
                 <div>
                     <button onclick="generateSheets()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow transition flex items-center justify-center">
-                        <i class="fas fa-magic mr-2"></i> 產生一式四份文件
+                        <i class="fas fa-magic mr-2"></i> 產生文件
                     </button>
                 </div>
             </div>
             
             <div class="mt-4 text-sm text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
                 <i class="fas fa-info-circle text-blue-600 mr-1"></i> 
-                <strong>提示：</strong> 生成文件後，你可以直接在下方的預覽畫面中點擊文字進行修改（例如：填寫大會紀錄、修改線道、備註等），修改完成後再點擊右上角匯出 PDF。
+                <strong>提示：</strong> 徑賽若超過 8 人會自動平均分組（H1, H2...）並按標準分配線道（3,4,5,6,2,7,1,8）。每組皆會獨立產生一式四份文件。
             </div>
         </div>
     </div>
@@ -112,13 +116,13 @@
     <div id="pdf-wrapper" class="w-full pb-20">
         <div id="preview-container" class="text-center text-gray-400 mt-10 no-print">
             <i class="fas fa-file-alt text-6xl mb-4 opacity-50"></i>
-            <p>請在上方選擇項目並點擊「產生文件」</p>
+            <p>請在上方設定並點擊「產生文件」</p>
         </div>
         <!-- 產生的 A4 頁面會放在這裡 -->
         <div id="pages-container"></div>
     </div>
 
-    <!-- Firebase SDK (已修正版本號與執行順序) -->
+    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -134,13 +138,12 @@
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             
-            // 【修正重點】必須先將 Firebase 函數綁定到 window，才能呼叫 fetchEventsData
             window.db = db;
             window.getDocs = getDocs;
             window.collection = collection;
             
             console.log("✅ Firebase 連線成功");
-            fetchEventsData(); // 綁定完成後再呼叫
+            fetchEventsData(); 
         } catch (error) {
             console.error("❌ Firebase 初始化失敗：", error);
             document.getElementById('event-select').innerHTML = '<option value="">資料庫連線失敗</option>';
@@ -149,7 +152,7 @@
 
     <script>
         let globalStudentsData = [];
-        let eventMap = new Map(); // 儲存 項目名稱 -> 學生陣列
+        let eventMap = new Map();
 
         // 判斷是否為田賽
         function isFieldEvent(eventName) {
@@ -157,12 +160,9 @@
             return fieldKeywords.some(keyword => eventName.includes(keyword));
         }
 
-        // 從 Firebase 讀取所有報名資料並分類
+        // 從 Firebase 讀取資料
         async function fetchEventsData() {
-            if (!window.db || !window.getDocs || !window.collection) {
-                console.error("Firebase 尚未準備好");
-                return;
-            }
+            if (!window.db || !window.getDocs || !window.collection) return;
             try {
                 const querySnapshot = await window.getDocs(window.collection(window.db, "students"));
                 globalStudentsData = [];
@@ -174,19 +174,14 @@
                     
                     if (student.registeredEvents && Array.isArray(student.registeredEvents)) {
                         student.registeredEvents.forEach(ev => {
-                            if (!eventMap.has(ev)) {
-                                eventMap.set(ev, []);
-                            }
+                            if (!eventMap.has(ev)) eventMap.set(ev, []);
                             eventMap.get(ev).push(student);
                         });
                     }
                 });
 
-                // 更新下拉選單
                 const select = document.getElementById('event-select');
                 select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
-                
-                // 將項目排序 (先按性別組別，再按項目)
                 const sortedEvents = Array.from(eventMap.keys()).sort();
                 
                 if (sortedEvents.length === 0) {
@@ -198,15 +193,15 @@
                     const count = eventMap.get(ev).length;
                     select.innerHTML += `<option value="${ev}">${ev} (共 ${count} 人)</option>`;
                 });
-
             } catch (error) {
                 console.error("讀取資料失敗:", error);
-                document.getElementById('event-select').innerHTML = '<option value="">讀取資料失敗，請檢查網路或資料庫權限</option>';
+                document.getElementById('event-select').innerHTML = '<option value="">讀取資料失敗</option>';
             }
         }
 
         // 生成文件核心邏輯
         function generateSheets() {
+            const eventNo = document.getElementById('event-no').value.trim();
             const eventName = document.getElementById('event-select').value;
             const stage = document.getElementById('stage-select').value;
             
@@ -218,7 +213,7 @@
             document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('export-btn').classList.remove('hidden');
             const container = document.getElementById('pages-container');
-            container.innerHTML = ''; // 清空舊內容
+            container.innerHTML = ''; 
 
             let students = eventMap.get(eventName) || [];
             
@@ -229,6 +224,45 @@
             });
 
             const isField = isFieldEvent(eventName);
+            let heats = []; // 儲存分組資料
+
+            // 處理徑賽分組邏輯 (田賽不分組)
+            if (!isField && students.length > 0 && stage !== "決賽") {
+                const numHeats = Math.ceil(students.length / 8); // 計算需要幾組
+                const baseSize = Math.floor(students.length / numHeats); // 每組基本人數
+                let remainder = students.length % numHeats; // 餘數分配給前面的組別
+
+                let studentIndex = 0;
+                for (let i = 0; i < numHeats; i++) {
+                    let heatSize = baseSize + (remainder > 0 ? 1 : 0);
+                    remainder--;
+
+                    let heatStudents = students.slice(studentIndex, studentIndex + heatSize);
+                    studentIndex += heatSize;
+
+                    // 徑賽線道分配次序
+                    const laneOrder = [3, 4, 5, 6, 2, 7, 1, 8];
+                    // 根據該組人數截取線道，並從小到大排序以便在表格中順序顯示
+                    let assignedLanes = laneOrder.slice(0, heatSize).sort((a, b) => a - b);
+
+                    // 將線道指派給學生
+                    let heatData = heatStudents.map((stu, idx) => ({
+                        ...stu,
+                        assignedLane: assignedLanes[idx]
+                    }));
+
+                    heats.push({
+                        heatName: numHeats > 1 ? `第 ${i + 1} 組 (Heat ${i + 1})` : '',
+                        data: heatData
+                    });
+                }
+            } else if (!isField && stage === "決賽" && students.length === 0) {
+                // 決賽且無名單，產生空表
+                heats.push({ heatName: '', data: [] });
+            } else {
+                // 田賽直接一組
+                heats.push({ heatName: '', data: students });
+            }
             
             // 一式四份的部門名稱
             const copies = [
@@ -238,15 +272,17 @@
                 { role: "最終紀錄", subtitle: "大會紀錄組存檔" }
             ];
 
-            copies.forEach((copy, index) => {
-                const pageHTML = buildA4Page(eventName, stage, students, isField, copy.role, copy.subtitle, index + 1);
-                container.innerHTML += pageHTML;
+            // 針對每一組 (Heat) 產生 4 份文件
+            heats.forEach((heat) => {
+                copies.forEach((copy, index) => {
+                    const pageHTML = buildA4Page(eventNo, eventName, stage, heat.data, isField, copy.role, copy.subtitle, index + 1, heat.heatName);
+                    container.innerHTML += pageHTML;
+                });
             });
         }
 
         // 構建單張 A4 頁面的 HTML
-        function buildA4Page(eventName, stage, students, isField, role, subtitle, copyNum) {
-            // 解析組別與項目 (例如從 "男子甲組 100M" 拆分)
+        function buildA4Page(eventNo, eventName, stage, students, isField, role, subtitle, copyNum, heatName) {
             let category = "";
             let item = eventName;
             const parts = eventName.split(' ');
@@ -255,7 +291,10 @@
                 item = parts.slice(1).join(' ');
             }
 
-            // 表格標題列
+            // 標題顯示處理
+            const eventNoDisplay = eventNo ? `【${eventNo}】 ` : '';
+            const heatDisplay = heatName ? ` - ${heatName}` : '';
+
             let tableHeaders = "";
             if (isField) {
                 tableHeaders = `
@@ -285,10 +324,9 @@
                 `;
             }
 
-            // 表格內容列
             let tableRows = "";
             if (students.length === 0 && stage === "決賽") {
-                // 如果是決賽且沒有預設名單，留空 8 行給手寫
+                // 決賽留空 8 行給手寫
                 for(let i=1; i<=8; i++) {
                     tableRows += generateEmptyRow(isField, i);
                 }
@@ -307,7 +345,7 @@
                         
                         <div class="flex justify-between items-end border-b-2 border-black pb-2">
                             <div class="text-left">
-                                <div class="text-lg font-bold">項目：${category} <span class="text-xl mx-2">${item}</span> ${stage}</div>
+                                <div class="text-lg font-bold">項目：${eventNoDisplay}${category} <span class="text-xl mx-2">${item}</span> ${stage}${heatDisplay}</div>
                                 <div class="text-sm mt-2">
                                     比賽日期：<span class="editable-field" contenteditable="true">_____月_____日</span> &nbsp;&nbsp;
                                     時間：<span class="editable-field" contenteditable="true">__:__</span>
@@ -370,8 +408,8 @@
                     </tr>
                 `;
             } else {
-                // 徑賽預設排線道，若超過 8 人則重新從 1 開始 (模擬分組)
-                const lane = ((index - 1) % 8) + 1;
+                // 使用分配好的線道
+                const lane = student.assignedLane || index;
                 return `
                     <tr>
                         <td contenteditable="true" class="font-bold">${lane}</td>
@@ -420,13 +458,15 @@
         function exportPDF() {
             const element = document.getElementById('pdf-wrapper');
             const eventName = document.getElementById('event-select').value;
+            const eventNo = document.getElementById('event-no').value.trim();
             
-            // 加入 pdf-mode class 以套用列印專用 CSS
+            const fileNamePrefix = eventNo ? `【${eventNo}】_` : '';
+            
             element.classList.add('pdf-mode');
 
             const opt = {
                 margin:       0,
-                filename:     `陸運會_${eventName}_紀錄表.pdf`,
+                filename:     `${fileNamePrefix}陸運會_${eventName}_紀錄表.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024 },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
