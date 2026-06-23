@@ -118,10 +118,10 @@
         <div id="pages-container"></div>
     </div>
 
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (已修正版本號與執行順序) -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB6N110dVd8_T9tygXEApjTPsQC5HsF0IQ",
@@ -133,16 +133,18 @@
         try {
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
+            
+            // 【修正重點】必須先將 Firebase 函數綁定到 window，才能呼叫 fetchEventsData
             window.db = db;
+            window.getDocs = getDocs;
+            window.collection = collection;
+            
             console.log("✅ Firebase 連線成功");
-            fetchEventsData();
+            fetchEventsData(); // 綁定完成後再呼叫
         } catch (error) {
             console.error("❌ Firebase 初始化失敗：", error);
             document.getElementById('event-select').innerHTML = '<option value="">資料庫連線失敗</option>';
         }
-
-        window.getDocs = getDocs;
-        window.collection = collection;
     </script>
 
     <script>
@@ -157,7 +159,10 @@
 
         // 從 Firebase 讀取所有報名資料並分類
         async function fetchEventsData() {
-            if (!window.db) return;
+            if (!window.db || !window.getDocs || !window.collection) {
+                console.error("Firebase 尚未準備好");
+                return;
+            }
             try {
                 const querySnapshot = await window.getDocs(window.collection(window.db, "students"));
                 globalStudentsData = [];
@@ -184,6 +189,11 @@
                 // 將項目排序 (先按性別組別，再按項目)
                 const sortedEvents = Array.from(eventMap.keys()).sort();
                 
+                if (sortedEvents.length === 0) {
+                    select.innerHTML = '<option value="">資料庫中目前沒有報名資料</option>';
+                    return;
+                }
+
                 sortedEvents.forEach(ev => {
                     const count = eventMap.get(ev).length;
                     select.innerHTML += `<option value="${ev}">${ev} (共 ${count} 人)</option>`;
@@ -191,7 +201,7 @@
 
             } catch (error) {
                 console.error("讀取資料失敗:", error);
-                document.getElementById('event-select').innerHTML = '<option value="">讀取資料失敗</option>';
+                document.getElementById('event-select').innerHTML = '<option value="">讀取資料失敗，請檢查網路或資料庫權限</option>';
             }
         }
 
