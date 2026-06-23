@@ -56,7 +56,6 @@
             </div>
             <div class="flex gap-3 items-center">
                 <label class="flex items-center text-sm bg-blue-700 px-3 py-2 rounded cursor-pointer hover:bg-blue-600 transition">
-                    <!-- 這裡我預設幫您把測試模式關掉了，會直接讀取您的 Firebase -->
                     <input type="checkbox" id="mock-mode-toggle" class="mr-2 w-4 h-4" onchange="window.initSystem()">
                     載入歷屆真實人數 (測試模式)
                 </label>
@@ -292,8 +291,18 @@
 
         let appData = [];
         
-        // 核心升級：將字串轉為全大寫並去除空格，解決 Firebase 命名差異
-        const normalizeString = (str) => str.replace(/\s+/g, '').toUpperCase();
+        // 核心升級：將字串轉為全大寫、去除空格，並自動轉換異體字或不同叫法
+        const normalizeString = (str) => {
+            let s = str.replace(/\s+/g, '').toUpperCase();
+            
+            // 處理田項名稱對應 (Firebase 報名名稱 -> 系統標準簡稱)
+            s = s.replace('擲壘球', '壘球');
+            s = s.replace('擲標槍', '標槍');
+            s = s.replace('擲鐵餅', '鐵餅');
+            s = s.replace('推鉛球', '鉛球');
+            
+            return s;
+        };
 
         window.initSystem = async function() {
             document.getElementById('loading-overlay').style.display = 'flex';
@@ -307,7 +316,7 @@
                         const student = doc.data();
                         if (student.registeredEvents && Array.isArray(student.registeredEvents)) {
                             student.registeredEvents.forEach(ev => {
-                                // 將 Firebase 裡面的字串也做同樣的大寫與去空白處理
+                                // 將 Firebase 裡面的字串進行標準化與關鍵字替換
                                 const normalizedEv = normalizeString(ev);
                                 eventCountMap.set(normalizedEv, (eventCountMap.get(normalizedEv) || 0) + 1);
                             });
@@ -330,15 +339,14 @@
                 let eventName = row.track || row.field;
                 let category = row.girls || row.boys;
                 
-                // 核心升級：同時產生兩種組合，應付「項目+組別」或「組別+項目」
-                let format1 = normalizeString(`${eventName}${category}`); // 例: 100M女子丙組
-                let format2 = normalizeString(`${category}${eventName}`); // 例: 女子丙組100M
+                // 產生兩種組合，應付「項目+組別」或「組別+項目」
+                let format1 = normalizeString(`${eventName}${category}`); // 例: 壘球女子丙組
+                let format2 = normalizeString(`${category}${eventName}`); // 例: 女子丙組壘球
                 
                 let count = 0;
                 if (isMockMode) {
                     count = mockCounts[format1] || mockCounts[format2] || 0;
                 } else {
-                    // 只要 Firebase 中符合其中一種格式，就能成功抓到人數！
                     count = eventCountMap.get(format1) || eventCountMap.get(format2) || 0;
                 }
                 
@@ -371,7 +379,6 @@
                         } else if (count >= 9) {
                             row.isValidEvent = true;
                             if (row.day === 1) {
-                                // 9個人 ÷ 8 = 1.125 -> 無條件進位為 2組 (H2)
                                 let heatCount = Math.ceil(count / 8);
                                 row.heat = 'H' + heatCount;
                             } else {
