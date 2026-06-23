@@ -103,7 +103,7 @@
             
             <div class="mt-4 text-sm text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
                 <i class="fas fa-info-circle text-blue-600 mr-1"></i> 
-                <strong>提示：</strong> 系統已與賽程表連動，比賽編號將自動帶入文件中。800m 及 1500m 項目已設定為不分線道，16人或以上自動平均分組。
+                <strong>提示：</strong> 800m 及 1500m 項目已設定為不分線道，<strong>17人或以上</strong>才會自動平均分組。若抓不到項目編號，可直接在生成的文件上點擊「未編號」手動輸入。
             </div>
         </div>
     </div>
@@ -232,12 +232,13 @@
                     
                     if (fullEventName) {
                         select.innerHTML += `<option value="${fullEventName}" data-itemno="${itemNo}" data-stage="${stage}" data-time="${time}">
-                            【${itemNo}】 ${time} - ${fullEventName} (${stage})
+                            【${itemNo || '未編號'}】 ${time} - ${fullEventName} (${stage})
                         </option>`;
                     }
                 });
             }
             
+            // 如果賽程表沒資料，退回使用學生報名資料生成選項
             if (!hasSchedule) {
                 const sortedEvents = Array.from(eventMap.keys()).sort();
                 if (sortedEvents.length === 0) {
@@ -305,8 +306,8 @@
                     heats.push({ heatName: '', data: heatData });
                 } else {
                     let numHeats = 1;
-                    // 16人或以上才分組
-                    if (students.length >= 16 && stage !== "決賽") {
+                    // 17人或以上才分組 (16人仍是一組直接決賽)
+                    if (students.length >= 17 && stage !== "決賽") {
                         numHeats = Math.ceil(students.length / 15); // 預設每組約 15 人
                     }
                     
@@ -402,7 +403,11 @@
                 item = parts.slice(1).join(' ');
             }
 
-            const eventNoDisplay = eventNo ? `【${eventNo}】 ` : '【未編號】 ';
+            // 如果沒有編號，提供一個可編輯的區域讓老師手動輸入
+            const eventNoDisplay = eventNo 
+                ? `【${eventNo}】 ` 
+                : `【<span class="editable-field" contenteditable="true" style="min-width: 30px; display: inline-block; text-align: center;">未編號</span>】 `;
+                
             const heatDisplay = heatName ? ` - ${heatName}` : '';
 
             let tableHeaders = "";
@@ -587,9 +592,10 @@
             const selectedOption = selectElement.options[selectElement.selectedIndex];
             
             const eventName = selectedOption.value;
-            const eventNo = selectedOption.getAttribute('data-itemno') || '未編號';
+            const eventNo = selectedOption.getAttribute('data-itemno') || '';
             
-            const fileNamePrefix = `【${eventNo}】_`;
+            // 如果沒有編號，檔名就不加編號前綴
+            const fileNamePrefix = eventNo ? `【${eventNo}】_` : '';
             
             element.classList.add('pdf-mode');
 
