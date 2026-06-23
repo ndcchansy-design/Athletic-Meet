@@ -148,8 +148,20 @@
 
     <script>
         let globalStudentsData = [];
-        let eventMap = new Map();
+        let eventMap = new Map(); // 儲存正規化後的報名資料
         let scheduleData = [];
+
+        // 新增：字串正規化函數 (確保賽程表與報名表的項目名稱能完美配對)
+        const normalizeString = (str) => {
+            if (!str) return '';
+            let s = str.replace(/\s+/g, '').toUpperCase();
+            s = s.replace('擲壘球', '壘球');
+            s = s.replace('擲標槍', '標槍');
+            s = s.replace('擲鐵餅', '鐵餅');
+            s = s.replace('推鉛球', '鉛球');
+            s = s.replace('推銘球', '鉛球'); 
+            return s;
+        };
 
         // 判斷是否為田賽
         function isFieldEvent(eventName) {
@@ -179,8 +191,10 @@
                     
                     if (student.registeredEvents && Array.isArray(student.registeredEvents)) {
                         student.registeredEvents.forEach(ev => {
-                            if (!eventMap.has(ev)) eventMap.set(ev, []);
-                            eventMap.get(ev).push(student);
+                            // 將學生的報名項目正規化後存入 Map
+                            const normalizedEv = normalizeString(ev);
+                            if (!eventMap.has(normalizedEv)) eventMap.set(normalizedEv, []);
+                            eventMap.get(normalizedEv).push(student);
                         });
                     }
                 });
@@ -228,10 +242,19 @@
                     const event = item['徑項'] || item['田項'] || item.trackEvent || item.fieldEvent || '';
                     const stage = (item['初賽'] || item.heats) ? '初賽' : '決賽';
                     
+                    // 顯示用的漂亮名稱 (例如: 女子乙組 鐵餅)
                     const fullEventName = `${group} ${event}`.trim();
                     
                     if (fullEventName) {
-                        select.innerHTML += `<option value="${fullEventName}" data-itemno="${itemNo}" data-stage="${stage}" data-time="${time}">
+                        // 產生用來找資料的 Key (例如: 鐵餅女子乙組)
+                        const format1 = normalizeString(`${event}${group}`);
+                        const format2 = normalizeString(`${group}${event}`);
+                        
+                        // 判斷資料庫是用哪種格式儲存的
+                        let matchKey = format1;
+                        if (eventMap.has(format2)) matchKey = format2;
+
+                        select.innerHTML += `<option value="${fullEventName}" data-matchkey="${matchKey}" data-itemno="${itemNo}" data-stage="${stage}" data-time="${time}">
                             【${itemNo || '未編號'}】 ${time} - ${fullEventName} (${stage})
                         </option>`;
                     }
@@ -247,7 +270,7 @@
                 }
                 sortedEvents.forEach(ev => {
                     const count = eventMap.get(ev).length;
-                    select.innerHTML += `<option value="${ev}" data-itemno="" data-stage="初賽">${ev} (共 ${count} 人)</option>`;
+                    select.innerHTML += `<option value="${ev}" data-matchkey="${ev}" data-itemno="" data-stage="初賽">${ev} (共 ${count} 人)</option>`;
                 });
             }
         }
@@ -267,7 +290,8 @@
             const selectElement = document.getElementById('event-select');
             const selectedOption = selectElement.options[selectElement.selectedIndex];
             
-            const eventName = selectedOption.value;
+            const eventName = selectedOption.value; // 顯示用的名稱
+            const matchKey = selectedOption.getAttribute('data-matchkey'); // 找資料用的 Key
             const eventNo = selectedOption.getAttribute('data-itemno') || ''; 
             const stage = document.getElementById('stage-select').value;
             const eventTime = selectedOption.getAttribute('data-time') || '__:__';
@@ -282,7 +306,8 @@
             const container = document.getElementById('pages-container');
             container.innerHTML = ''; 
 
-            let students = eventMap.get(eventName) || [];
+            // 使用 matchKey 來尋找學生名單
+            let students = eventMap.get(matchKey) || [];
             
             // 排序學生：按班別 -> 班號
             students.sort((a, b) => {
