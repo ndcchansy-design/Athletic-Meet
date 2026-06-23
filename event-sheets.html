@@ -25,11 +25,11 @@
         .sheet-table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-top: 15px; }
         .sheet-table th, .sheet-table td { 
             border: 1px solid #000; 
-            padding: 8px 4px; 
+            padding: 6px 2px; 
             text-align: center; 
             color: #000;
         }
-        .sheet-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; font-weight: bold; }
+        .sheet-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; font-weight: bold; font-size: 10pt; }
         
         /* 可編輯區域的提示效果 */
         .editable-field {
@@ -82,11 +82,11 @@
             
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">1. 比賽編號 (選填)</label>
-                    <input type="text" id="event-no" placeholder="例如: 01" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">1. 比賽編號 (自動帶入)</label>
+                    <input type="text" id="event-no" readonly placeholder="選擇項目後自動帶入" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-200 text-gray-600 cursor-not-allowed focus:outline-none">
                 </div>
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">2. 選擇比賽項目</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">2. 選擇比賽項目 (從賽程表)</label>
                     <select id="event-select" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">載入資料中...</option>
                     </select>
@@ -107,7 +107,7 @@
             
             <div class="mt-4 text-sm text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
                 <i class="fas fa-info-circle text-blue-600 mr-1"></i> 
-                <strong>提示：</strong> 徑賽若超過 8 人會自動平均分組（H1, H2...）並按標準分配線道（3,4,5,6,2,7,1,8）。每組皆會獨立產生一式四份文件。
+                <strong>提示：</strong> 系統已與賽程表連動，比賽編號將自動鎖定。徑賽若人數不足 8 人，仍會印出完整的 1-8 線道供裁判記錄。田賽已加入初賽及決賽的 6 次試跳/擲紀錄欄位。
             </div>
         </div>
     </div>
@@ -143,7 +143,7 @@
             window.collection = collection;
             
             console.log("✅ Firebase 連線成功");
-            fetchEventsData(); 
+            fetchAllData(); 
         } catch (error) {
             console.error("❌ Firebase 初始化失敗：", error);
             document.getElementById('event-select').innerHTML = '<option value="">資料庫連線失敗</option>';
@@ -153,6 +153,7 @@
     <script>
         let globalStudentsData = [];
         let eventMap = new Map();
+        let scheduleData = [];
 
         // 判斷是否為田賽
         function isFieldEvent(eventName) {
@@ -160,15 +161,17 @@
             return fieldKeywords.some(keyword => eventName.includes(keyword));
         }
 
-        // 從 Firebase 讀取資料
-        async function fetchEventsData() {
+        // 從 Firebase 讀取學生報名與賽程表資料
+        async function fetchAllData() {
             if (!window.db || !window.getDocs || !window.collection) return;
+            
             try {
-                const querySnapshot = await window.getDocs(window.collection(window.db, "students"));
+                // 1. 讀取學生報名資料
+                const studentSnap = await window.getDocs(window.collection(window.db, "students"));
                 globalStudentsData = [];
                 eventMap.clear();
 
-                querySnapshot.forEach((doc) => {
+                studentSnap.forEach((doc) => {
                     const student = doc.data();
                     globalStudentsData.push(student);
                     
@@ -180,30 +183,123 @@
                     }
                 });
 
-                const select = document.getElementById('event-select');
-                select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
-                const sortedEvents = Array.from(eventMap.keys()).sort();
-                
-                if (sortedEvents.length === 0) {
-                    select.innerHTML = '<option value="">資料庫中目前沒有報名資料</option>';
-                    return;
+                // 2. 讀取賽程表資料 (schedule)
+                try {
+                    const scheduleSnap = await window.getDocs(window.collection(window.db, "schedule"));
+                    scheduleData = [];
+                    scheduleSnap.forEach((doc) => {
+                        scheduleData.push({ id: doc.id, ...doc.data() });
+                    });
+                } catch (e) {
+                    console.warn("未能讀取 schedule 資料庫，將使用備用模式。");
                 }
 
-                sortedEvents.forEach(ev => {
-                    const count = eventMap.get(ev).length;
-                    select.innerHTML += `<option value="${ev}">${ev} (共 ${count} 人)</option>`;
-                });
+                populateDropdown();
+
             } catch (error) {
                 console.error("讀取資料失敗:", error);
                 document.getElementById('event-select').innerHTML = '<option value="">讀取資料失敗</option>';
             }
         }
 
+        // 填充下拉選單
+        function populateDropdown() {
+            const select = document.getElementById('event-select');
+            select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
+            
+            let hasSchedule = false;
+
+            if (scheduleData && scheduleData.length > 0) {
+                hasSchedule = true;
+                
+                // 依照項目編號排序
+                scheduleData.sort((a, b) => {
+                    const numA = parseInt(a['項目'] || a.itemNo || a.id) || 0;
+                    const numB = parseInt(b['項目'] || b.itemNo || b.id) || 0;
+                    return numA - numB;
+                });
+
+                scheduleData.forEach(item => {
+                    // 支援多種可能的資料庫欄位命名
+                    const itemNo = item['項目'] || item.itemNo || item.id || '';
+                    const time = item['時間'] || item.time || '';
+                    const group = item['女子組'] || item['男子組'] || item.girlsGroup || item.boysGroup || '';
+                    const event = item['徑項'] || item['田項'] || item.trackEvent || item.fieldEvent || '';
+                    const stage = (item['初賽'] || item.heats) ? '初賽' : '決賽';
+                    
+                    const fullEventName = `${group} ${event}`.trim();
+                    
+                    if (fullEventName) {
+                        select.innerHTML += `<option value="${fullEventName}" data-itemno="${itemNo}" data-stage="${stage}" data-time="${time}">
+                            【${itemNo}】 ${time} - ${fullEventName} (${stage})
+                        </option>`;
+                    }
+                });
+            }
+            
+            // 如果沒有賽程表資料，或者要補齊未排入賽程的項目
+            if (!hasSchedule) {
+                const sortedEvents = Array.from(eventMap.keys()).sort();
+                if (sortedEvents.length === 0) {
+                    select.innerHTML = '<option value="">資料庫中目前沒有報名資料</option>';
+                    return;
+                }
+                sortedEvents.forEach(ev => {
+                    const count = eventMap.get(ev).length;
+                    select.innerHTML += `<option value="${ev}" data-itemno="" data-stage="初賽">${ev} (共 ${count} 人)</option>`;
+                });
+                
+                // 解鎖編號輸入框
+                unlockEventNoInput();
+            }
+        }
+
+        // 解鎖編號輸入框 (當沒有賽程資料時)
+        function unlockEventNoInput() {
+            const input = document.getElementById('event-no');
+            input.removeAttribute('readonly');
+            input.classList.remove('bg-gray-200', 'cursor-not-allowed');
+            input.classList.add('bg-gray-50');
+            input.placeholder = "請手動輸入編號";
+        }
+
+        // 鎖定編號輸入框 (當有賽程資料時自動帶入)
+        function lockEventNoInput(val) {
+            const input = document.getElementById('event-no');
+            input.value = val;
+            input.setAttribute('readonly', 'true');
+            input.classList.add('bg-gray-200', 'cursor-not-allowed');
+            input.classList.remove('bg-gray-50');
+        }
+
+        // 監聽選單變更，自動帶入編號與階段
+        document.getElementById('event-select').addEventListener('change', function() {
+            const option = this.options[this.selectedIndex];
+            if (!option.value) return;
+            
+            const itemNo = option.getAttribute('data-itemno');
+            const stage = option.getAttribute('data-stage');
+            
+            if (itemNo) {
+                lockEventNoInput(itemNo);
+            } else {
+                unlockEventNoInput();
+                document.getElementById('event-no').value = '';
+            }
+            
+            if (stage) {
+                document.getElementById('stage-select').value = stage;
+            }
+        });
+
         // 生成文件核心邏輯
         function generateSheets() {
             const eventNo = document.getElementById('event-no').value.trim();
-            const eventName = document.getElementById('event-select').value;
+            const selectElement = document.getElementById('event-select');
+            const selectedOption = selectElement.options[selectElement.selectedIndex];
+            const eventName = selectedOption.value;
             const stage = document.getElementById('stage-select').value;
+            const eventTime = selectedOption.getAttribute('data-time') || '__:__';
             
             if (!eventName) {
                 alert("請先選擇比賽項目！");
@@ -224,13 +320,16 @@
             });
 
             const isField = isFieldEvent(eventName);
-            let heats = []; // 儲存分組資料
+            let heats = []; 
 
-            // 處理徑賽分組邏輯 (田賽不分組)
-            if (!isField && students.length > 0 && stage !== "決賽") {
-                const numHeats = Math.ceil(students.length / 8); // 計算需要幾組
-                const baseSize = Math.floor(students.length / numHeats); // 每組基本人數
-                let remainder = students.length % numHeats; // 餘數分配給前面的組別
+            // 判斷是否為直接決賽 (徑賽且人數 <= 8)
+            let isDirectFinal = stage === "決賽" && students.length > 0 && students.length <= 8;
+
+            // 處理徑賽分組邏輯 (強制產生 8 條線道)
+            if (!isField && students.length > 0 && (stage !== "決賽" || isDirectFinal)) {
+                const numHeats = Math.ceil(students.length / 8); 
+                const baseSize = Math.floor(students.length / numHeats); 
+                let remainder = students.length % numHeats; 
 
                 let studentIndex = 0;
                 for (let i = 0; i < numHeats; i++) {
@@ -242,25 +341,37 @@
 
                     // 徑賽線道分配次序
                     const laneOrder = [3, 4, 5, 6, 2, 7, 1, 8];
-                    // 根據該組人數截取線道，並從小到大排序以便在表格中順序顯示
                     let assignedLanes = laneOrder.slice(0, heatSize).sort((a, b) => a - b);
 
-                    // 將線道指派給學生
-                    let heatData = heatStudents.map((stu, idx) => ({
-                        ...stu,
-                        assignedLane: assignedLanes[idx]
-                    }));
+                    // 建立完整的 8 條線道陣列
+                    let heatData = [];
+                    for (let lane = 1; lane <= 8; lane++) {
+                        heatData.push({ assignedLane: lane, isEmpty: true });
+                    }
+
+                    // 將學生填入對應的線道
+                    heatStudents.forEach((stu, idx) => {
+                        const laneToAssign = assignedLanes[idx];
+                        const laneIndex = heatData.findIndex(d => d.assignedLane === laneToAssign);
+                        if (laneIndex !== -1) {
+                            heatData[laneIndex] = { ...stu, assignedLane: laneToAssign, isEmpty: false };
+                        }
+                    });
 
                     heats.push({
                         heatName: numHeats > 1 ? `第 ${i + 1} 組 (Heat ${i + 1})` : '',
                         data: heatData
                     });
                 }
-            } else if (!isField && stage === "決賽" && students.length === 0) {
-                // 決賽且無名單，產生空表
-                heats.push({ heatName: '', data: [] });
+            } else if (!isField && stage === "決賽" && !isDirectFinal) {
+                // 決賽且非直接決賽 (需手寫名單)，產生 8 條空線道
+                let heatData = [];
+                for (let lane = 1; lane <= 8; lane++) {
+                    heatData.push({ assignedLane: lane, isEmpty: true });
+                }
+                heats.push({ heatName: '', data: heatData });
             } else {
-                // 田賽直接一組
+                // 田賽直接一組 (不分線道)
                 heats.push({ heatName: '', data: students });
             }
             
@@ -275,14 +386,14 @@
             // 針對每一組 (Heat) 產生 4 份文件
             heats.forEach((heat) => {
                 copies.forEach((copy, index) => {
-                    const pageHTML = buildA4Page(eventNo, eventName, stage, heat.data, isField, copy.role, copy.subtitle, index + 1, heat.heatName);
+                    const pageHTML = buildA4Page(eventNo, eventName, stage, heat.data, isField, copy.role, copy.subtitle, index + 1, heat.heatName, eventTime);
                     container.innerHTML += pageHTML;
                 });
             });
         }
 
         // 構建單張 A4 頁面的 HTML
-        function buildA4Page(eventNo, eventName, stage, students, isField, role, subtitle, copyNum, heatName) {
+        function buildA4Page(eventNo, eventName, stage, heatData, isField, role, subtitle, copyNum, heatName, eventTime) {
             let category = "";
             let item = eventName;
             const parts = eventName.split(' ');
@@ -291,7 +402,6 @@
                 item = parts.slice(1).join(' ');
             }
 
-            // 標題顯示處理
             const eventNoDisplay = eventNo ? `【${eventNo}】 ` : '';
             const heatDisplay = heatName ? ` - ${heatName}` : '';
 
@@ -299,13 +409,17 @@
             if (isField) {
                 tableHeaders = `
                     <tr>
-                        <th width="6%">次序</th>
-                        <th width="10%">號碼布</th>
-                        <th width="20%">姓名</th>
-                        <th width="8%">班別</th>
-                        <th width="12%">試 1</th>
-                        <th width="12%">試 2</th>
-                        <th width="12%">試 3</th>
+                        <th width="4%">次序</th>
+                        <th width="6%">號碼布</th>
+                        <th width="16%">姓名</th>
+                        <th width="6%">班別</th>
+                        <th width="7%">初 1</th>
+                        <th width="7%">初 2</th>
+                        <th width="7%">初 3</th>
+                        <th width="6%">決賽<br>次序</th>
+                        <th width="7%">決 1</th>
+                        <th width="7%">決 2</th>
+                        <th width="7%">決 3</th>
                         <th width="12%">最佳成績</th>
                         <th width="8%">名次</th>
                     </tr>
@@ -325,13 +439,14 @@
             }
 
             let tableRows = "";
-            if (students.length === 0 && stage === "決賽") {
-                // 決賽留空 8 行給手寫
+            if (isField && heatData.length === 0 && stage === "決賽") {
+                // 田賽決賽空表 (留 8 行)
                 for(let i=1; i<=8; i++) {
-                    tableRows += generateEmptyRow(isField, i);
+                    tableRows += generateStudentRow({ isEmpty: true }, i, isField);
                 }
             } else {
-                students.forEach((stu, idx) => {
+                heatData.forEach((stu, idx) => {
+                    // 田賽傳入 idx + 1 作為次序，徑賽則使用 stu.assignedLane
                     tableRows += generateStudentRow(stu, idx + 1, isField);
                 });
             }
@@ -348,7 +463,7 @@
                                 <div class="text-lg font-bold">項目：${eventNoDisplay}${category} <span class="text-xl mx-2">${item}</span> ${stage}${heatDisplay}</div>
                                 <div class="text-sm mt-2">
                                     比賽日期：<span class="editable-field" contenteditable="true">_____月_____日</span> &nbsp;&nbsp;
-                                    時間：<span class="editable-field" contenteditable="true">__:__</span>
+                                    時間：<span class="editable-field" contenteditable="true">${eventTime}</span>
                                 </div>
                             </div>
                             <div class="text-right">
@@ -389,68 +504,79 @@
         }
 
         function generateStudentRow(student, index, isField) {
-            const name = student.nameZh || student.nameEn || '';
-            const bib = student.bibNumber || '';
-            const cls = `${student.classCode || ''}${student.classNo ? '('+student.classNo+')' : ''}`;
-            
             if (isField) {
-                return `
-                    <tr>
-                        <td contenteditable="true">${index}</td>
-                        <td class="font-bold">${bib}</td>
-                        <td class="text-left px-2">${name}</td>
-                        <td>${cls}</td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true" class="bg-gray-50"></td>
-                        <td contenteditable="true"></td>
-                    </tr>
-                `;
+                if (student.isEmpty) {
+                    return `
+                        <tr>
+                            <td contenteditable="true">${index}</td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true" class="bg-gray-100"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true" class="bg-gray-50"></td>
+                            <td contenteditable="true"></td>
+                        </tr>
+                    `;
+                } else {
+                    const name = student.nameZh || student.nameEn || '';
+                    const bib = student.bibNumber || '';
+                    const cls = student.classCode ? `${student.classCode}${student.classNo ? '('+student.classNo+')' : ''}` : '';
+                    
+                    return `
+                        <tr>
+                            <td contenteditable="true">${index}</td>
+                            <td class="font-bold">${bib}</td>
+                            <td class="text-left px-1 text-sm">${name}</td>
+                            <td class="text-sm">${cls}</td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true" class="bg-gray-100"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true" class="bg-gray-50"></td>
+                            <td contenteditable="true"></td>
+                        </tr>
+                    `;
+                }
             } else {
-                // 使用分配好的線道
-                const lane = student.assignedLane || index;
-                return `
-                    <tr>
-                        <td contenteditable="true" class="font-bold">${lane}</td>
-                        <td class="font-bold">${bib}</td>
-                        <td class="text-left px-2">${name}</td>
-                        <td>${cls}</td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true" class="text-left text-xs text-gray-500"></td>
-                    </tr>
-                `;
-            }
-        }
-
-        function generateEmptyRow(isField, index) {
-            if (isField) {
-                return `
-                    <tr>
-                        <td contenteditable="true">${index}</td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true" class="bg-gray-50"></td>
-                        <td contenteditable="true"></td>
-                    </tr>
-                `;
-            } else {
-                return `
-                    <tr>
-                        <td contenteditable="true" class="font-bold">${index}</td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                        <td contenteditable="true"></td>
-                    </tr>
-                `;
+                // 徑賽 (一定會有 8 條線道傳入)
+                if (student.isEmpty) {
+                    return `
+                        <tr>
+                            <td contenteditable="true" class="font-bold">${student.assignedLane}</td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                        </tr>
+                    `;
+                } else {
+                    const name = student.nameZh || student.nameEn || '';
+                    const bib = student.bibNumber || '';
+                    const cls = student.classCode ? `${student.classCode}${student.classNo ? '('+student.classNo+')' : ''}` : '';
+                    
+                    return `
+                        <tr>
+                            <td contenteditable="true" class="font-bold">${student.assignedLane}</td>
+                            <td class="font-bold">${bib}</td>
+                            <td class="text-left px-2">${name}</td>
+                            <td>${cls}</td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true"></td>
+                            <td contenteditable="true" class="text-left text-xs text-gray-500"></td>
+                        </tr>
+                    `;
+                }
             }
         }
 
