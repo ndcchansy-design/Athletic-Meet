@@ -105,7 +105,7 @@
             
             <div class="mt-4 text-sm text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
                 <i class="fas fa-info-circle text-blue-600 mr-1"></i> 
-                <strong>提示：</strong> 當單組人數超過 20 人時，系統會自動分頁。800m 及 1500m 項目 17 人或以上才會自動平均分組。
+                <strong>提示：</strong> 系統會自動將選手進行<strong>隨機排序</strong>，以模擬真實抽籤編排線道與次序。當單組人數超過 20 人時會自動分頁。
             </div>
         </div>
     </div>
@@ -295,12 +295,14 @@
             const container = document.getElementById('pages-container');
             container.innerHTML = ''; 
 
-            let students = eventMap.get(matchKey) || [];
+            // 【修改重點】複製一份陣列，避免修改到原始資料庫快取
+            let students = [...(eventMap.get(matchKey) || [])];
             
-            students.sort((a, b) => {
-                if (a.classCode === b.classCode) return (a.classNo || 0) - (b.classNo || 0);
-                return (a.classCode || '').localeCompare(b.classCode || '');
-            });
+            // 【修改重點】使用 Fisher-Yates 演算法進行隨機打亂 (Random Shuffle)
+            for (let i = students.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [students[i], students[j]] = [students[j], students[i]]; // 交換位置
+            }
 
             const isField = isFieldEvent(eventName);
             const isLongDist = isLongDistance(eventName);
@@ -354,6 +356,7 @@
                         let heatStudents = students.slice(studentIndex, studentIndex + heatSize);
                         studentIndex += heatSize;
 
+                        // 短跑優勢線道分配順序
                         const laneOrder = [3, 4, 5, 6, 2, 7, 1, 8];
                         let assignedLanes = laneOrder.slice(0, heatSize).sort((a, b) => a - b);
 
@@ -384,7 +387,6 @@
                 }
             }
             
-            // 【重要修改】將每頁最大行數下調至 20 行，確保有足夠空間留給簽名區
             const ROWS_PER_PAGE = 20; 
 
             const copies = [
@@ -475,7 +477,6 @@
 
             return `
                 <div class="a4-container">
-                    <!-- 上半部內容區塊 (flex-1 會自動填滿剩餘空間，把簽名區往下推) -->
                     <div class="flex-1">
                         <!-- 頁首 -->
                         <div class="text-center mb-6">
@@ -518,7 +519,7 @@
                         </table>
                     </div>
 
-                    <!-- 簽名區 (移除 absolute，改為 auto margin-top 貼齊底部) -->
+                    <!-- 簽名區 -->
                     <div class="flex justify-between text-sm pt-4 border-t border-gray-400 mt-8">
                         <div>召集員簽署：____________________</div>
                         <div>裁判長簽署：____________________</div>
