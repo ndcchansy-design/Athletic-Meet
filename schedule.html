@@ -6,29 +6,24 @@
     <title>陸運會賽程表編排系統 (真實 Firebase 連線版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- 引入 html2pdf.js 用於生成 PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <style>
         body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
         
-        /* 編輯模式下的表格樣式 */
         .editable-cell { transition: background-color 0.2s; outline: none; }
         .editable-cell:hover { background-color: #eef2ff; cursor: text; }
         .editable-cell:focus { background-color: #fffacd; border-bottom: 2px solid #3b82f6; }
         
-        /* 列操作按鈕隱藏與顯示 */
         .row-actions { opacity: 0; transition: opacity 0.2s; }
         tr:hover .row-actions { opacity: 1; }
 
-        /* 載入中遮罩 */
         #loading-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255, 255, 255, 0.9); z-index: 9999;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
 
-        /* 列印/PDF 專用樣式 */
         @media print, .pdf-mode {
             body { background-color: white; }
             .no-print { display: none !important; }
@@ -38,7 +33,6 @@
             th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; }
             .divider-row td { background-color: #e5e7eb !important; font-weight: bold; -webkit-print-color-adjust: exact; }
             .page-break { page-break-before: always; }
-            /* 列印時隱藏被取消的賽事 */
             .cancelled-event { display: none !important; }
         }
     </style>
@@ -52,19 +46,23 @@
         <p class="text-gray-500 mt-2" id="loading-text">連線中，請稍候</p>
     </div>
 
-    <!-- 頂部導覽列 (不列印) -->
+    <!-- 頂部導覽列 -->
     <nav class="bg-blue-800 text-white shadow-lg no-print sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
             <div class="text-xl font-bold flex items-center">
                 <i class="fas fa-calendar-alt mr-2"></i>
-                <span>陸運會賽程表編排系統 (Firebase 連線版)</span>
+                <span>陸運會賽程表編排系統</span>
             </div>
-            <div class="flex gap-3">
+            <div class="flex gap-3 items-center">
+                <label class="flex items-center text-sm bg-blue-700 px-3 py-2 rounded cursor-pointer hover:bg-blue-600 transition">
+                    <input type="checkbox" id="mock-mode-toggle" class="mr-2 w-4 h-4" onchange="window.initSystem()">
+                    強制測試模式 (模擬皆有10人)
+                </label>
                 <button onclick="window.initSystem()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm transition shadow flex items-center">
-                    <i class="fas fa-sync-alt mr-2"></i> 重新同步資料
+                    <i class="fas fa-sync-alt mr-2"></i> 重新同步
                 </button>
                 <button onclick="window.exportPDF()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm font-bold transition shadow flex items-center">
-                    <i class="fas fa-file-pdf mr-2"></i> 匯出 A4 PDF
+                    <i class="fas fa-file-pdf mr-2"></i> 匯出 PDF
                 </button>
             </div>
         </div>
@@ -72,12 +70,13 @@
 
     <div class="max-w-5xl mx-auto px-4 py-6 no-print">
         <div class="bg-blue-50 border-l-4 border-blue-600 p-4 mb-6 rounded shadow-sm text-blue-800 text-sm">
-            <p class="font-bold mb-1"><i class="fas fa-database mr-1"></i> 已連線至您的 Firebase (athletic-meet-85936)</p>
+            <p class="font-bold mb-1"><i class="fas fa-info-circle mr-1"></i> 賽事編號與排版機制 (已更新)</p>
             <ul class="list-disc list-inside space-y-1 ml-2">
-                <li><strong>徑項 > 8人：</strong> 自動計算初賽組別 (如 9人 = H2)。</li>
-                <li><strong>徑項 1~8人 (直接決賽)：</strong> 初賽日自動取消(無編號)，決賽日保留並給予賽事編號。</li>
-                <li><strong>無人報名 (0人)：</strong> 初賽與決賽皆不編寫賽事編號，列印時自動隱藏。</li>
-                <li>自動計算完成後，您仍可點擊表格進行<strong>手動修改</strong>。</li>
+                <li><strong>徑賽 0-1人 / 田賽 0-1人：</strong> 自動取消，沒有編號 (列印時隱藏)。</li>
+                <li><strong>徑賽 2-8人：</strong> 直入決賽。初賽日保留欄位並給予編號 (顯示「直決」)，決賽日亦有編號。</li>
+                <li><strong>徑賽 9人以上：</strong> 分組初賽。初賽與決賽皆有編號 (顯示 H2, H3...)。</li>
+                <li><strong>田賽 2人以上：</strong> 皆為決賽，給予編號。</li>
+                <li class="text-red-600 mt-1">註：若看到「取消」，代表資料庫中該項目人數為 0 或 1。可勾選上方「強制測試模式」預覽排版。</li>
             </ul>
         </div>
 
@@ -92,7 +91,7 @@
     <!-- 賽程表主體 -->
     <div id="pdf-content" class="max-w-5xl mx-auto bg-white shadow-xl rounded-lg mb-10 pdf-container">
         
-        <!-- Day 1 區塊 -->
+        <!-- Day 1 -->
         <div id="day-1-container" class="p-8">
             <div class="text-center mb-6">
                 <h1 class="text-2xl font-bold text-gray-800" contenteditable="true">初賽日程序表 12/12/2025</h1>
@@ -113,14 +112,12 @@
                 </thead>
                 <tbody id="tbody-day-1"></tbody>
             </table>
-            <div class="text-center mt-4 text-gray-600 font-bold" contenteditable="true">
-                初 賽 日 完 結 (16:00)
-            </div>
+            <div class="text-center mt-4 text-gray-600 font-bold" contenteditable="true">初 賽 日 完 結 (16:00)</div>
         </div>
 
         <div class="html2pdf__page-break"></div>
 
-        <!-- Day 2 區塊 -->
+        <!-- Day 2 -->
         <div id="day-2-container" class="p-8 hidden">
             <div class="text-center mb-6">
                 <h1 class="text-2xl font-bold text-gray-800" contenteditable="true">決賽日程序表 15/12/2025</h1>
@@ -141,20 +138,16 @@
                 </thead>
                 <tbody id="tbody-day-2"></tbody>
             </table>
-            <div class="text-center mt-6 text-gray-600 font-bold" contenteditable="true">
-                11:45 頒 獎 典 禮<br><br>
-                決 賽 日 完 結 (13:00)
-            </div>
+            <div class="text-center mt-6 text-gray-600 font-bold" contenteditable="true">11:45 頒 獎 典 禮<br><br>決 賽 日 完 結 (13:00)</div>
         </div>
 
     </div>
 
-    <!-- Firebase SDK (v10 Module) 與核心邏輯 -->
+    <!-- Firebase SDK (v10 Module) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // 您的真實 Firebase 設定
         const firebaseConfig = {
             apiKey: "AIzaSyB6N110dVd8_T9tygXEApjTPsQC5HsF0IQ",
             authDomain: "athletic-meet-85936.firebaseapp.com",
@@ -162,7 +155,7 @@
         };
 
         let app, db;
-        let eventCountMap = new Map(); // 記錄每個項目的報名人數
+        let eventCountMap = new Map(); 
 
         try {
             app = initializeApp(firebaseConfig);
@@ -173,56 +166,59 @@
             document.getElementById('loading-text').innerText = "Firebase 連線失敗，請檢查設定";
         }
 
-        // ==========================================
-        // 預設賽程資料 (Template)
-        // ==========================================
+        // 預設賽程資料
         const defaultData = [
-            // --- Day 1 ---
-            { day: 1, type: 'event', time: '08:50', track: '', field: '鐵餅', girls: '女子乙組', boys: '', heat: '', final: 'F' },
-            { day: 1, type: 'event', time: '08:55', track: '400m', field: '', girls: '', boys: '男子丙組', heat: 'H', final: '' },
-            { day: 1, type: 'event', time: '09:00', track: '400m', field: '', girls: '', boys: '男子甲組', heat: 'H', final: '' },
-            { day: 1, type: 'event', time: '09:20', track: '100m', field: '', girls: '女子丙組', boys: '', heat: 'H', final: '' },
+            // --- Day 1 (初賽日) ---
+            { day: 1, type: 'event', time: '08:50', track: '', field: '鐵餅', girls: '女子乙組', boys: '', heat: '', final: '' },
+            { day: 1, type: 'event', time: '08:55', track: '400m', field: '', girls: '', boys: '男子丙組', heat: '', final: '' },
+            { day: 1, type: 'event', time: '09:00', track: '400m', field: '', girls: '', boys: '男子甲組', heat: '', final: '' },
+            { day: 1, type: 'event', time: '09:20', track: '100m', field: '', girls: '女子丙組', boys: '', heat: '', final: '' },
             { day: 1, type: 'divider', time: '11:30 - 13:00', text: '午 膳 時 段' },
-            { day: 1, type: 'event', time: '13:05', track: '100m跨欄', field: '', girls: '女子乙組', boys: '', heat: 'H', final: '' },
-            { day: 1, type: 'event', time: '14:05', track: '4x100m', field: '', girls: '女子甲組', boys: '', heat: 'H', final: '' },
+            { day: 1, type: 'event', time: '13:05', track: '100m跨欄', field: '', girls: '女子乙組', boys: '', heat: '', final: '' },
+            { day: 1, type: 'event', time: '14:05', track: '4x100m', field: '', girls: '女子甲組', boys: '', heat: '', final: '' },
             
-            // --- Day 2 ---
-            { day: 2, type: 'event', time: '08:35', track: '100m跨欄', field: '', girls: '女子乙組', boys: '', heat: '', final: 'F' },
-            { day: 2, type: 'event', time: '08:55', track: '400m', field: '', girls: '', boys: '男子甲組', heat: '', final: 'F' },
-            { day: 2, type: 'event', time: '09:00', track: '100m', field: '', girls: '女子丙組', boys: '', heat: '', final: 'F' },
-            { day: 2, type: 'event', time: '09:15', track: '400m', field: '', girls: '', boys: '男子丙組', heat: '', final: 'F' },
-            { day: 2, type: 'event', time: '10:05', track: '4x100m', field: '', girls: '女子甲組', boys: '', heat: '', final: 'F' },
+            // --- Day 2 (決賽日) ---
+            { day: 2, type: 'event', time: '08:35', track: '100m跨欄', field: '', girls: '女子乙組', boys: '', heat: '', final: '' },
+            { day: 2, type: 'event', time: '08:55', track: '400m', field: '', girls: '', boys: '男子甲組', heat: '', final: '' },
+            { day: 2, type: 'event', time: '09:00', track: '100m', field: '', girls: '女子丙組', boys: '', heat: '', final: '' },
+            { day: 2, type: 'event', time: '09:15', track: '400m', field: '', girls: '', boys: '男子丙組', heat: '', final: '' },
+            { day: 2, type: 'event', time: '10:05', track: '4x100m', field: '', girls: '女子甲組', boys: '', heat: '', final: '' },
         ];
 
         let appData = [];
         let itemCounter = 1;
 
-        // 系統初始化與資料讀取
+        // 移除字串中所有空格 (用於精準比對)
+        const normalizeString = (str) => str.replace(/\s+/g, '');
+
         window.initSystem = async function() {
             document.getElementById('loading-overlay').style.display = 'flex';
             document.getElementById('loading-text').innerText = "正在統計各項目報名人數...";
             
+            const isMockMode = document.getElementById('mock-mode-toggle').checked;
+
             try {
-                // 1. 從 students 集合讀取所有學生，統計報名人數
-                const studentSnap = await getDocs(collection(db, "students"));
                 eventCountMap.clear();
-                
-                studentSnap.forEach((doc) => {
-                    const student = doc.data();
-                    if (student.registeredEvents && Array.isArray(student.registeredEvents)) {
-                        student.registeredEvents.forEach(ev => {
-                            if (!eventCountMap.has(ev)) eventCountMap.set(ev, 0);
-                            eventCountMap.set(ev, eventCountMap.get(ev) + 1);
-                        });
-                    }
-                });
-                console.log("✅ 報名人數統計完成:", Object.fromEntries(eventCountMap));
+                if (!isMockMode) {
+                    const studentSnap = await getDocs(collection(db, "students"));
+                    studentSnap.forEach((doc) => {
+                        const student = doc.data();
+                        if (student.registeredEvents && Array.isArray(student.registeredEvents)) {
+                            student.registeredEvents.forEach(ev => {
+                                // 將 Firebase 的項目名稱去空白後存入 Map
+                                const normalizedEv = normalizeString(ev);
+                                if (!eventCountMap.has(normalizedEv)) eventCountMap.set(normalizedEv, 0);
+                                eventCountMap.set(normalizedEv, eventCountMap.get(normalizedEv) + 1);
+                            });
+                        }
+                    });
+                    console.log("✅ 報名人數統計完成:", Object.fromEntries(eventCountMap));
+                }
             } catch (error) {
                 console.error("❌ 讀取報名資料失敗:", error);
-                alert("讀取 Firebase 資料失敗，請確認資料庫權限是否開放。");
             }
 
-            // 2. 套用邏輯到賽程表
+            // 套用邏輯到賽程表
             let templateData = JSON.parse(JSON.stringify(defaultData));
             appData = [];
 
@@ -234,49 +230,54 @@
 
                 let eventName = row.track || row.field;
                 let category = row.girls || row.boys;
-                // 組合名稱以對應資料庫，例如 "女子丙組 100m"
-                let fullEventName = `${category} ${eventName}`.trim();
                 
-                // 取得該項目人數 (如果資料庫沒這項，視為 0 人)
-                let count = eventCountMap.has(fullEventName) ? eventCountMap.get(fullEventName) : 0;
+                // 組合名稱並去除所有空白，確保與 Firebase 資料完美配對
+                let fullEventName = `${category}${eventName}`;
+                let normalizedFull = normalizeString(fullEventName);
+                
+                // 取得人數 (測試模式強制為 10 人)
+                let count = isMockMode ? 10 : (eventCountMap.has(normalizedFull) ? eventCountMap.get(normalizedFull) : 0);
                 row.participantCount = count;
 
                 // 核心邏輯判斷
-                if (count === 0) {
-                    // 沒人報名 -> 取消賽事
-                    row.heat = '';
-                    row.final = '';
+                row.isValidEvent = false;
+
+                if (count <= 1) {
+                    // 0-1人：取消 (沒有編號)
+                    row.isValidEvent = false;
+                    row.heat = '取消';
+                    row.final = '取消';
                 } else {
+                    // 2人以上：有效賽事
+                    row.isValidEvent = true;
+
                     if (row.track) {
-                        // 徑項邏輯
-                        if (count <= 8) {
-                            // 1~8人：直接決賽
-                            if (row.heat !== '' && row.final === '') {
-                                // 初賽日：取消此列 (初賽日不用跑)
-                                row.heat = '';
+                        // 【徑賽】
+                        if (count >= 2 && count <= 8) {
+                            // 2-8人：直入決賽，但初賽日仍要有編號
+                            if (row.day === 1) {
+                                row.heat = '直決'; // 初賽日顯示直決
                                 row.final = '';
-                            } else if (row.final !== '') {
-                                // 決賽日：保留決賽
+                            } else {
                                 row.heat = '';
-                                row.final = 'F';
+                                row.final = 'F'; // 決賽日顯示 F
                             }
-                        } else {
-                            // > 8人：需要初賽
-                            if (row.heat !== '' && row.final === '') {
-                                // 初賽日：計算組數 (每組8人)
+                        } else if (count >= 9) {
+                            // 9人或以上：分 HEAT
+                            if (row.day === 1) {
                                 let heatCount = Math.ceil(count / 8);
                                 row.heat = 'H' + heatCount;
                                 row.final = '';
-                            } else if (row.final !== '') {
-                                // 決賽日：保留決賽
+                            } else {
                                 row.heat = '';
                                 row.final = 'F';
                             }
                         }
                     } else if (row.field) {
-                        // 田項邏輯：直接顯示人數在決賽欄
+                        // 【田賽】
+                        // 2人以上無論多少人都是決賽
                         row.heat = '';
-                        row.final = count.toString();
+                        row.final = count + '人'; // 顯示人數或 F 皆可
                     }
                 }
                 appData.push(row);
@@ -311,27 +312,23 @@
                         </td>
                     `;
                 } else {
-                    // 判斷該項目是否有效 (有初賽或決賽標記)
-                    let isValidEvent = (row.heat !== '' || row.final !== '');
+                    // 若 isValidEvent 為 false (0-1人)，則不給編號並加上 cancelled-event (列印時隱藏)
+                    let displayItemNumber = row.isValidEvent ? itemCounter++ : '<span class="text-gray-400 text-xs">取消</span>';
                     
-                    // 如果無效(被取消)，不給編號，並加上 cancelled-event class
-                    let displayItemNumber = isValidEvent ? itemCounter++ : '<span class="text-gray-400 text-xs">取消</span>';
-                    
-                    // 若被取消，畫面變淡且列印時隱藏
-                    tr.className = isValidEvent 
+                    tr.className = row.isValidEvent 
                         ? "border-b border-gray-200 hover:bg-gray-50 group" 
                         : "border-b border-gray-200 bg-gray-100 opacity-50 group cancelled-event no-print";
 
-                    // 提示文字 (僅供參考)
-                    let countHint = row.participantCount !== undefined ? ` title="資料庫報名人數: ${row.participantCount}人"` : '';
+                    // 顯示實際人數供參考
+                    let countDisplay = `<span class="text-xs text-gray-400 ml-1 no-print">(${row.participantCount}人)</span>`;
 
                     tr.innerHTML = `
-                        <td class="border border-gray-300 py-2 px-2 text-center font-medium"${countHint}>${displayItemNumber}</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center font-medium">${displayItemNumber}</td>
                         <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="window.updateData(${index}, 'time', this.innerText)">${row.time}</td>
                         <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="window.updateData(${index}, 'track', this.innerText)">${row.track}</td>
                         <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="window.updateData(${index}, 'field', this.innerText)">${row.field}</td>
-                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="window.updateData(${index}, 'girls', this.innerText)">${row.girls}</td>
-                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="window.updateData(${index}, 'boys', this.innerText)">${row.boys}</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="window.updateData(${index}, 'girls', this.innerText)">${row.girls}${row.girls ? countDisplay : ''}</td>
+                        <td class="border border-gray-300 py-2 px-2 text-center editable-cell" contenteditable="true" onblur="window.updateData(${index}, 'boys', this.innerText)">${row.boys}${row.boys ? countDisplay : ''}</td>
                         <td class="border border-gray-300 py-2 px-2 text-center editable-cell font-bold text-blue-700" contenteditable="true" onblur="window.updateData(${index}, 'heat', this.innerText)">${row.heat}</td>
                         <td class="border border-gray-300 py-2 px-2 text-center editable-cell font-bold text-red-600" contenteditable="true" onblur="window.updateData(${index}, 'final', this.innerText)">${row.final}</td>
                         <td class="py-2 px-1 text-center no-print border-none bg-transparent">
@@ -348,17 +345,12 @@
             });
         };
 
-        // 更新資料陣列 (保留手動修改功能)
         window.updateData = function(index, field, value) {
             appData[index][field] = value.trim();
-            // 如果手動修改了 heat 或 final，重新渲染以更新賽事編號
-            if (field === 'heat' || field === 'final') {
-                window.renderTables();
-            }
         };
 
         window.addRow = function(index, day) {
-            const newRow = { day: day, type: 'event', time: '', track: '', field: '', girls: '', boys: '', heat: '', final: '' };
+            const newRow = { day: day, type: 'event', time: '', track: '', field: '', girls: '', boys: '', heat: '', final: '', isValidEvent: true, participantCount: 0 };
             appData.splice(index + 1, 0, newRow);
             window.renderTables();
         };
@@ -425,7 +417,6 @@
             });
         };
 
-        // 網頁載入完成後自動執行
         window.addEventListener('DOMContentLoaded', () => {
             window.initSystem();
         });
