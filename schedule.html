@@ -34,7 +34,6 @@
             .divider-row td { background-color: #fff !important; font-weight: bold; -webkit-print-color-adjust: exact; border-left: none; border-right: none; }
             .page-break { page-break-before: always; }
             .cancelled-event { display: none !important; }
-            /* 隱藏表格左右外框以貼近原圖風格 */
             table { border-left: none; border-right: none; }
             tr td:first-child, tr th:first-child { border-left: none; }
             tr td:last-child, tr th:last-child { border-right: none; }
@@ -57,7 +56,8 @@
             </div>
             <div class="flex gap-3 items-center">
                 <label class="flex items-center text-sm bg-blue-700 px-3 py-2 rounded cursor-pointer hover:bg-blue-600 transition">
-                    <input type="checkbox" id="mock-mode-toggle" class="mr-2 w-4 h-4" onchange="window.initSystem()" checked>
+                    <!-- 這裡我預設幫您把測試模式關掉了，會直接讀取您的 Firebase -->
+                    <input type="checkbox" id="mock-mode-toggle" class="mr-2 w-4 h-4" onchange="window.initSystem()">
                     載入歷屆真實人數 (測試模式)
                 </label>
                 <button onclick="window.initSystem()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm transition shadow flex items-center">
@@ -78,9 +78,7 @@
         </div>
     </div>
 
-    <!-- 賽程表主體 -->
     <div id="pdf-content" class="max-w-4xl mx-auto bg-white shadow-xl mb-10 pdf-container">
-        
         <!-- Day 1 -->
         <div id="day-1-container" class="p-10">
             <div class="text-center mb-4 relative">
@@ -132,7 +130,6 @@
             </table>
             <div class="text-center mt-8 text-gray-800 font-bold" contenteditable="true">11:45 &nbsp;&nbsp;&nbsp;&nbsp; 頒 獎 典 禮<br><br><br>決 賽 日 完 結 (13:00)</div>
         </div>
-
     </div>
 
     <!-- Firebase SDK -->
@@ -156,7 +153,6 @@
             console.error("Firebase 初始化失敗：", error);
         }
 
-        // 完整還原圖片中的賽程順序 (包含安插的 100m 跨欄)
         const defaultData = [
             // --- Day 1 ---
             { day: 1, time: '08:50', track: '', field: '鐵餅', girls: '女子乙組', boys: '' },
@@ -189,7 +185,6 @@
             { day: 1, time: '11:10', track: '1500m', field: '', girls: '', boys: '男子甲組' },
             { day: 1, type: 'divider', time: '11:30 - 13:00', text: '午 膳 時 段' },
             
-            // 根據要求安插的 100m 跨欄初賽
             { day: 1, time: '13:05', track: '100m跨欄', field: '', girls: '女子丙組', boys: '' },
             { day: 1, time: '13:05', track: '100m跨欄', field: '', girls: '女子乙組', boys: '' },
             { day: 1, time: '13:05', track: '100m跨欄', field: '', girls: '女子甲組', boys: '' },
@@ -223,7 +218,6 @@
             { day: 1, time: '15:25', track: '校友接力', field: '', girls: '', boys: '' },
 
             // --- Day 2 ---
-            // 根據要求安插的 100m 跨欄決賽
             { day: 2, time: '08:30', track: '100m跨欄', field: '', girls: '女子丙組', boys: '' },
             { day: 2, time: '08:30', track: '100m跨欄', field: '', girls: '女子乙組', boys: '' },
             { day: 2, time: '08:30', track: '100m跨欄', field: '', girls: '女子甲組', boys: '' },
@@ -267,30 +261,39 @@
             { day: 2, time: '11:25', track: '校友接力', field: '', girls: '', boys: '' }
         ];
 
-        // 為了讓測試模式能完美重現您的圖片，這裡寫入了圖片中的真實人數
         const mockCounts = {
-            "鐵餅女子乙組": 7, "鉛球女子丙組": 3, "400m男子丙組": 8, "400m男子乙組": 3, "400m男子甲組": 15,
-            "400m女子丙組": 3, "400m女子乙組": 5, "跳高男子丙組": 8, "400m女子甲組": 5, "跳遠男子甲組": 16,
-            "標槍女子甲組": 26, "100m女子丙組": 30, "100m女子乙組": 20, "100m女子甲組": 20, "鐵餅男子乙組": 9,
-            "100m男子丙組": 35, "跳遠女子乙組": 16, "100m男子乙組": 20, "壘球女子丙組": 9, "100m男子甲組": 15,
-            "鉛球男子乙組": 12, "跳高男子乙組": 9, "1500m女子乙組": 3, "鐵餅男子丙組": 9, "1500m女子甲組": 11,
-            "1500m男子乙組": 6, "壘球男子丙組": 10, "1500m男子甲組": 14, "壘球女子乙組": 12, "跳高男子甲組": 8,
-            "跳遠女子甲組": 7, "鉛球男子甲組": 19, "200m女子丙組": 5, "跳遠男子丙組": 24, "200m女子乙組": 15,
-            "200m女子甲組": 15, "200m男子丙組": 15, "鐵餅女子甲組": 10, "200m男子乙組": 15, "200m男子甲組": 7,
-            "鉛球男子丙組": 8, "標槍男子甲組": 26, "中一級女子4x100m接力": 6, "中二級女子4x100m接力": 6,
-            "中三級女子4x100m接力": 6, "中四級女子4x100m接力": 6, "中五級女子4x100m接力": 6, "中六級女子4x100m接力": 6,
-            "男子4x100m學會接力": 15, "女子4x100m學會接力": 15, "師生接力": 15, "校友接力": 15,
-            "標槍男子乙組": 8, "跳高女子甲組": 11, "鉛球女子甲組": 17, "跳高女子乙組": 3, "跳遠男子乙組": 13,
-            "800m女子乙組": 4, "鐵餅男子甲組": 17, "跳遠女子丙組": 12, "800m女子甲組": 3, "800m男子丙組": 7,
-            "鉛球女子乙組": 10, "800m男子乙組": 7, "800m男子甲組": 12, "中一級男子4x100m接力": 6, "中二級男子4x100m接力": 6,
-            "中三級男子4x100m接力": 6, "中四級男子4x100m接力": 6, "中五級男子4x100m接力": 6, "中六級男子4x100m接力": 6,
-            // 模擬 100m 跨欄人數 (部分取消，部分直決，部分分組)
-            "100m跨欄女子丙組": 0, "100m跨欄女子乙組": 5, "100m跨欄女子甲組": 12,
-            "100m跨欄男子丙組": 1, "100m跨欄男子乙組": 15, "100m跨欄男子甲組": 8
+            "100M女子丙組": 30, "100M女子乙組": 20, "100M女子甲組": 20,
+            "100M男子丙組": 35, "100M男子乙組": 20, "100M男子甲組": 15,
+            "400M男子丙組": 8, "400M男子乙組": 3, "400M男子甲組": 15,
+            "400M女子丙組": 3, "400M女子乙組": 5, "400M女子甲組": 5,
+            "鐵餅女子乙組": 7, "鉛球女子丙組": 3, "跳高男子丙組": 8, 
+            "跳遠男子甲組": 16, "標槍女子甲組": 26, "鐵餅男子乙組": 9,
+            "跳遠女子乙組": 16, "壘球女子丙組": 9, "鉛球男子乙組": 12, 
+            "跳高男子乙組": 9, "1500M女子乙組": 3, "鐵餅男子丙組": 9, 
+            "1500M女子甲組": 11, "1500M男子乙組": 6, "壘球男子丙組": 10, 
+            "1500M男子甲組": 14, "壘球女子乙組": 12, "跳高男子甲組": 8,
+            "跳遠女子甲組": 7, "鉛球男子甲組": 19, "200M女子丙組": 5, 
+            "跳遠男子丙組": 24, "200M女子乙組": 15, "200M女子甲組": 15, 
+            "200M男子丙組": 15, "鐵餅女子甲組": 10, "200M男子乙組": 15, 
+            "200M男子甲組": 7, "鉛球男子丙組": 8, "標槍男子甲組": 26, 
+            "標槍男子乙組": 8, "跳高女子甲組": 11, "鉛球女子甲組": 17, 
+            "跳高女子乙組": 3, "跳遠男子乙組": 13, "800M女子乙組": 4, 
+            "鐵餅男子甲組": 17, "跳遠女子丙組": 12, "800M女子甲組": 3, 
+            "800M男子丙組": 7, "鉛球女子乙組": 10, "800M男子乙組": 7, 
+            "800M男子甲組": 12,
+            "中一級女子4X100M接力": 6, "中二級女子4X100M接力": 6, "中三級女子4X100M接力": 6, 
+            "中四級女子4X100M接力": 6, "中五級女子4X100M接力": 6, "中六級女子4X100M接力": 6,
+            "男子4X100M學會接力": 15, "女子4X100M學會接力": 15, "師生接力": 15, "校友接力": 15,
+            "中一級男子4X100M接力": 6, "中二級男子4X100M接力": 6, "中三級男子4X100M接力": 6, 
+            "中四級男子4X100M接力": 6, "中五級男子4X100M接力": 6, "中六級男子4X100M接力": 6,
+            "100M跨欄女子丙組": 0, "100M跨欄女子乙組": 5, "100M跨欄女子甲組": 12,
+            "100M跨欄男子丙組": 1, "100M跨欄男子乙組": 15, "100M跨欄男子甲組": 8
         };
 
         let appData = [];
-        const normalizeString = (str) => str.replace(/\s+/g, '');
+        
+        // 核心升級：將字串轉為全大寫並去除空格，解決 Firebase 命名差異
+        const normalizeString = (str) => str.replace(/\s+/g, '').toUpperCase();
 
         window.initSystem = async function() {
             document.getElementById('loading-overlay').style.display = 'flex';
@@ -304,6 +307,7 @@
                         const student = doc.data();
                         if (student.registeredEvents && Array.isArray(student.registeredEvents)) {
                             student.registeredEvents.forEach(ev => {
+                                // 將 Firebase 裡面的字串也做同樣的大寫與去空白處理
                                 const normalizedEv = normalizeString(ev);
                                 eventCountMap.set(normalizedEv, (eventCountMap.get(normalizedEv) || 0) + 1);
                             });
@@ -315,7 +319,7 @@
             }
 
             appData = [];
-            let completedStraightFinals = new Set(); // 紀錄已經在 Day 1 舉辦過的直決項目
+            let completedStraightFinals = new Set(); 
 
             for (let row of defaultData) {
                 if (row.type === 'divider') {
@@ -325,9 +329,18 @@
 
                 let eventName = row.track || row.field;
                 let category = row.girls || row.boys;
-                let fullEventName = normalizeString(`${eventName}${category}`);
                 
-                let count = isMockMode ? (mockCounts[fullEventName] || 0) : (eventCountMap.get(fullEventName) || 0);
+                // 核心升級：同時產生兩種組合，應付「項目+組別」或「組別+項目」
+                let format1 = normalizeString(`${eventName}${category}`); // 例: 100M女子丙組
+                let format2 = normalizeString(`${category}${eventName}`); // 例: 女子丙組100M
+                
+                let count = 0;
+                if (isMockMode) {
+                    count = mockCounts[format1] || mockCounts[format2] || 0;
+                } else {
+                    // 只要 Firebase 中符合其中一種格式，就能成功抓到人數！
+                    count = eventCountMap.get(format1) || eventCountMap.get(format2) || 0;
+                }
                 
                 row.participantCount = count;
                 row.isValidEvent = false;
@@ -335,41 +348,34 @@
                 row.final = '';
 
                 if (count <= 1) {
-                    // 0-1人：取消
                     row.isValidEvent = false;
                 } else {
                     if (row.field) {
-                        // 田賽：2人以上皆決賽
                         row.isValidEvent = true;
                         row.final = count;
                     } else if (row.track) {
-                        // 徑賽
                         let isLongDistance = eventName.includes('800m') || eventName.includes('1500m');
                         let isRelay = eventName.includes('接力');
 
                         if (isLongDistance) {
-                            // 長跑直接決賽
                             row.isValidEvent = true;
                             row.final = count;
                         } else if (count >= 2 && count <= 8) {
-                            // 2-8人：直入決賽
-                            if (completedStraightFinals.has(fullEventName)) {
-                                // 如果在 Day 1 已經排過了，Day 2 的欄位就取消 (避免重複)
+                            if (completedStraightFinals.has(format1)) {
                                 row.isValidEvent = false;
                             } else {
-                                // 第一次遇到 (通常是 Day 1)，直接變成決賽
                                 row.isValidEvent = true;
                                 row.final = isRelay ? 'F' : count;
-                                completedStraightFinals.add(fullEventName);
+                                completedStraightFinals.add(format1);
                             }
                         } else if (count >= 9) {
-                            // 9人以上：分 HEAT
                             row.isValidEvent = true;
                             if (row.day === 1) {
+                                // 9個人 ÷ 8 = 1.125 -> 無條件進位為 2組 (H2)
                                 let heatCount = Math.ceil(count / 8);
                                 row.heat = 'H' + heatCount;
                             } else {
-                                row.final = isRelay ? 'F' : 'F'; // 決賽日顯示 F
+                                row.final = isRelay ? 'F' : 'F';
                             }
                         }
                     }
@@ -382,7 +388,7 @@
         };
 
         window.renderTables = function() {
-            let itemCounter = 1; // 全局計數器，確保 Day 1 和 Day 2 編號連續
+            let itemCounter = 1; 
             const tbody1 = document.getElementById('tbody-day-1');
             const tbody2 = document.getElementById('tbody-day-2');
             tbody1.innerHTML = '';
@@ -405,7 +411,7 @@
                         </td>
                     `;
                 } else {
-                    let displayItemNumber = row.isValidEvent ? itemCounter++ : '<span class="text-gray-300 text-xs">取消</span>';
+                    let displayItemNumber = row.isValidEvent ? itemCounter++ : `<span class="text-gray-300 text-xs">取消 (${row.participantCount}人)</span>`;
                     
                     tr.className = row.isValidEvent 
                         ? "border-b border-gray-200 hover:bg-gray-50 group" 
