@@ -280,27 +280,19 @@
             "鐵餅男子甲組": 17, "跳遠女子丙組": 12, "800M女子甲組": 3, 
             "800M男子丙組": 7, "鉛球女子乙組": 10, "800M男子乙組": 7, 
             "800M男子甲組": 12,
-            "中一級女子4X100M接力": 6, "中二級女子4X100M接力": 6, "中三級女子4X100M接力": 6, 
-            "中四級女子4X100M接力": 6, "中五級女子4X100M接力": 6, "中六級女子4X100M接力": 6,
-            "男子4X100M學會接力": 15, "女子4X100M學會接力": 15, "師生接力": 15, "校友接力": 15,
-            "中一級男子4X100M接力": 6, "中二級男子4X100M接力": 6, "中三級男子4X100M接力": 6, 
-            "中四級男子4X100M接力": 6, "中五級男子4X100M接力": 6, "中六級男子4X100M接力": 6,
             "100M跨欄女子丙組": 0, "100M跨欄女子乙組": 5, "100M跨欄女子甲組": 12,
             "100M跨欄男子丙組": 1, "100M跨欄男子乙組": 15, "100M跨欄男子甲組": 8
         };
 
         let appData = [];
         
-        // 核心升級：將字串轉為全大寫、去除空格，並自動轉換異體字或不同叫法
         const normalizeString = (str) => {
             let s = str.replace(/\s+/g, '').toUpperCase();
-            
-            // 處理田項名稱對應 (Firebase 報名名稱 -> 系統標準簡稱)
             s = s.replace('擲壘球', '壘球');
             s = s.replace('擲標槍', '標槍');
             s = s.replace('擲鐵餅', '鐵餅');
             s = s.replace('推鉛球', '鉛球');
-            
+            s = s.replace('推銘球', '鉛球'); 
             return s;
         };
 
@@ -316,7 +308,6 @@
                         const student = doc.data();
                         if (student.registeredEvents && Array.isArray(student.registeredEvents)) {
                             student.registeredEvents.forEach(ev => {
-                                // 將 Firebase 裡面的字串進行標準化與關鍵字替換
                                 const normalizedEv = normalizeString(ev);
                                 eventCountMap.set(normalizedEv, (eventCountMap.get(normalizedEv) || 0) + 1);
                             });
@@ -339,9 +330,8 @@
                 let eventName = row.track || row.field;
                 let category = row.girls || row.boys;
                 
-                // 產生兩種組合，應付「項目+組別」或「組別+項目」
-                let format1 = normalizeString(`${eventName}${category}`); // 例: 壘球女子丙組
-                let format2 = normalizeString(`${category}${eventName}`); // 例: 女子丙組壘球
+                let format1 = normalizeString(`${eventName}${category}`);
+                let format2 = normalizeString(`${category}${eventName}`);
                 
                 let count = 0;
                 if (isMockMode) {
@@ -355,7 +345,15 @@
                 row.heat = '';
                 row.final = '';
 
-                if (count <= 1) {
+                // 核心修改：判斷是否為接力項目
+                let isRelay = eventName.includes('接力');
+
+                if (isRelay) {
+                    // 接力項目不經系統報名，永遠保留並直接進入決賽
+                    row.isValidEvent = true;
+                    row.final = 'F';
+                } else if (count <= 1) {
+                    // 非接力項目，人數少於或等於 1 人則取消
                     row.isValidEvent = false;
                 } else {
                     if (row.field) {
@@ -363,7 +361,6 @@
                         row.final = count;
                     } else if (row.track) {
                         let isLongDistance = eventName.includes('800m') || eventName.includes('1500m');
-                        let isRelay = eventName.includes('接力');
 
                         if (isLongDistance) {
                             row.isValidEvent = true;
@@ -373,7 +370,7 @@
                                 row.isValidEvent = false;
                             } else {
                                 row.isValidEvent = true;
-                                row.final = isRelay ? 'F' : count;
+                                row.final = count;
                                 completedStraightFinals.add(format1);
                             }
                         } else if (count >= 9) {
@@ -382,7 +379,7 @@
                                 let heatCount = Math.ceil(count / 8);
                                 row.heat = 'H' + heatCount;
                             } else {
-                                row.final = isRelay ? 'F' : 'F';
+                                row.final = 'F';
                             }
                         }
                     }
@@ -418,7 +415,9 @@
                         </td>
                     `;
                 } else {
-                    let displayItemNumber = row.isValidEvent ? itemCounter++ : `<span class="text-gray-300 text-xs">取消 (${row.participantCount}人)</span>`;
+                    // 如果是接力項目且沒有 Firebase 數據，顯示 "接力" 而非 "0人"
+                    let cancelText = row.participantCount;
+                    let displayItemNumber = row.isValidEvent ? itemCounter++ : `<span class="text-gray-300 text-xs">取消 (${cancelText}人)</span>`;
                     
                     tr.className = row.isValidEvent 
                         ? "border-b border-gray-200 hover:bg-gray-50 group" 
