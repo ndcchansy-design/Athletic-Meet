@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>獻主會聖母院書院 - 比賽紀錄表生成系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
+        
+        /* A4 紙張預覽樣式 */
+        .a4-container {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto 20px auto;
+            background: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 15mm;
+            position: relative;
+        }
+        
+        /* 表格樣式 */
+        .sheet-table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-top: 15px; }
+        .sheet-table th, .sheet-table td { 
+            border: 1px solid #000; 
+            padding: 8px 4px; 
+            text-align: center; 
+            color: #000;
+        }
+        .sheet-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; font-weight: bold; }
+        
+        /* 可編輯區域的提示效果 */
+        .editable-field {
+            transition: background-color 0.2s;
+            outline: none;
+            border-bottom: 1px dashed #ccc;
+            min-width: 50px;
+            display: inline-block;
+        }
+        .editable-field:hover, .sheet-table td[contenteditable="true"]:hover { background-color: #eef2ff; cursor: text; }
+        .editable-field:focus, .sheet-table td[contenteditable="true"]:focus { background-color: #fffacd; border-bottom: 1px solid #3b82f6; }
+
+        /* 列印與 PDF 匯出設定 */
+        @media print, .pdf-mode {
+            body { background-color: white; }
+            .no-print { display: none !important; }
+            .a4-container { 
+                box-shadow: none; 
+                margin: 0; 
+                padding: 10mm; 
+                width: 100%;
+                page-break-after: always;
+            }
+            .a4-container:last-child { page-break-after: auto; }
+            .editable-field { border-bottom: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 頂部導覽列 (不列印) -->
+    <nav class="bg-blue-800 text-white shadow-lg no-print sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="text-xl font-bold flex items-center">
+                <i class="fas fa-file-signature mr-2"></i>
+                <span>獻主會聖母院書院 - 比賽文件生成系統</span>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="exportPDF()" id="export-btn" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm font-bold transition shadow flex items-center hidden">
+                    <i class="fas fa-file-pdf mr-2"></i> 匯出 A4 PDF
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 控制面板 (不列印) -->
+    <div class="max-w-7xl mx-auto px-4 py-6 no-print">
+        <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-blue-800">
+            <h2 class="text-lg font-bold mb-4 text-gray-800"><i class="fas fa-cogs mr-2"></i>生成設定</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">1. 選擇比賽項目</label>
+                    <select id="event-select" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">載入資料中...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">2. 比賽階段</label>
+                    <select id="stage-select" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="初賽">初賽 / 直接決賽</option>
+                        <option value="決賽">決賽 (需手動填寫名單)</option>
+                    </select>
+                </div>
+                <div>
+                    <button onclick="generateSheets()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow transition flex items-center justify-center">
+                        <i class="fas fa-magic mr-2"></i> 產生一式四份文件
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-4 text-sm text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
+                <i class="fas fa-info-circle text-blue-600 mr-1"></i> 
+                <strong>提示：</strong> 生成文件後，你可以直接在下方的預覽畫面中點擊文字進行修改（例如：填寫大會紀錄、修改線道、備註等），修改完成後再點擊右上角匯出 PDF。
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF 內容預覽區 -->
+    <div id="pdf-wrapper" class="w-full pb-20">
+        <div id="preview-container" class="text-center text-gray-400 mt-10 no-print">
+            <i class="fas fa-file-alt text-6xl mb-4 opacity-50"></i>
+            <p>請在上方選擇項目並點擊「產生文件」</p>
+        </div>
+        <!-- 產生的 A4 頁面會放在這裡 -->
+        <div id="pages-container"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB6N110dVd8_T9tygXEApjTPsQC5HsF0IQ",
+            authDomain: "athletic-meet-85936.firebaseapp.com",
+            projectId: "athletic-meet-85936"
+        };
+
+        let app, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            window.db = db;
+            console.log("✅ Firebase 連線成功");
+            fetchEventsData();
+        } catch (error) {
+            console.error("❌ Firebase 初始化失敗：", error);
+            document.getElementById('event-select').innerHTML = '<option value="">資料庫連線失敗</option>';
+        }
+
+        window.getDocs = getDocs;
+        window.collection = collection;
+    </script>
+
+    <script>
+        let globalStudentsData = [];
+        let eventMap = new Map(); // 儲存 項目名稱 -> 學生陣列
+
+        // 判斷是否為田賽
+        function isFieldEvent(eventName) {
+            const fieldKeywords = ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'];
+            return fieldKeywords.some(keyword => eventName.includes(keyword));
+        }
+
+        // 從 Firebase 讀取所有報名資料並分類
+        async function fetchEventsData() {
+            if (!window.db) return;
+            try {
+                const querySnapshot = await window.getDocs(window.collection(window.db, "students"));
+                globalStudentsData = [];
+                eventMap.clear();
+
+                querySnapshot.forEach((doc) => {
+                    const student = doc.data();
+                    globalStudentsData.push(student);
+                    
+                    if (student.registeredEvents && Array.isArray(student.registeredEvents)) {
+                        student.registeredEvents.forEach(ev => {
+                            if (!eventMap.has(ev)) {
+                                eventMap.set(ev, []);
+                            }
+                            eventMap.get(ev).push(student);
+                        });
+                    }
+                });
+
+                // 更新下拉選單
+                const select = document.getElementById('event-select');
+                select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
+                
+                // 將項目排序 (先按性別組別，再按項目)
+                const sortedEvents = Array.from(eventMap.keys()).sort();
+                
+                sortedEvents.forEach(ev => {
+                    const count = eventMap.get(ev).length;
+                    select.innerHTML += `<option value="${ev}">${ev} (共 ${count} 人)</option>`;
+                });
+
+            } catch (error) {
+                console.error("讀取資料失敗:", error);
+                document.getElementById('event-select').innerHTML = '<option value="">讀取資料失敗</option>';
+            }
+        }
+
+        // 生成文件核心邏輯
+        function generateSheets() {
+            const eventName = document.getElementById('event-select').value;
+            const stage = document.getElementById('stage-select').value;
+            
+            if (!eventName) {
+                alert("請先選擇比賽項目！");
+                return;
+            }
+
+            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('export-btn').classList.remove('hidden');
+            const container = document.getElementById('pages-container');
+            container.innerHTML = ''; // 清空舊內容
+
+            let students = eventMap.get(eventName) || [];
+            
+            // 排序學生：按班別 -> 班號
+            students.sort((a, b) => {
+                if (a.classCode === b.classCode) return (a.classNo || 0) - (b.classNo || 0);
+                return (a.classCode || '').localeCompare(b.classCode || '');
+            });
+
+            const isField = isFieldEvent(eventName);
+            
+            // 一式四份的部門名稱
+            const copies = [
+                { role: "召集處", subtitle: "檢錄及點名用" },
+                { role: isField ? "測量處" : "計時處", subtitle: "紀錄成績用" },
+                { role: isField ? "裁判長" : "終點裁判", subtitle: "核對及名次判定" },
+                { role: "最終紀錄", subtitle: "大會紀錄組存檔" }
+            ];
+
+            copies.forEach((copy, index) => {
+                const pageHTML = buildA4Page(eventName, stage, students, isField, copy.role, copy.subtitle, index + 1);
+                container.innerHTML += pageHTML;
+            });
+        }
+
+        // 構建單張 A4 頁面的 HTML
+        function buildA4Page(eventName, stage, students, isField, role, subtitle, copyNum) {
+            // 解析組別與項目 (例如從 "男子甲組 100M" 拆分)
+            let category = "";
+            let item = eventName;
+            const parts = eventName.split(' ');
+            if(parts.length > 1) {
+                category = parts[0];
+                item = parts.slice(1).join(' ');
+            }
+
+            // 表格標題列
+            let tableHeaders = "";
+            if (isField) {
+                tableHeaders = `
+                    <tr>
+                        <th width="6%">次序</th>
+                        <th width="10%">號碼布</th>
+                        <th width="20%">姓名</th>
+                        <th width="8%">班別</th>
+                        <th width="12%">試 1</th>
+                        <th width="12%">試 2</th>
+                        <th width="12%">試 3</th>
+                        <th width="12%">最佳成績</th>
+                        <th width="8%">名次</th>
+                    </tr>
+                `;
+            } else {
+                tableHeaders = `
+                    <tr>
+                        <th width="6%">線道</th>
+                        <th width="10%">號碼布</th>
+                        <th width="25%">姓名</th>
+                        <th width="8%">班別</th>
+                        <th width="18%">成績 / 時間</th>
+                        <th width="8%">名次</th>
+                        <th width="25%">備註 (犯規/缺席)</th>
+                    </tr>
+                `;
+            }
+
+            // 表格內容列
+            let tableRows = "";
+            if (students.length === 0 && stage === "決賽") {
+                // 如果是決賽且沒有預設名單，留空 8 行給手寫
+                for(let i=1; i<=8; i++) {
+                    tableRows += generateEmptyRow(isField, i);
+                }
+            } else {
+                students.forEach((stu, idx) => {
+                    tableRows += generateStudentRow(stu, idx + 1, isField);
+                });
+            }
+
+            return `
+                <div class="a4-container">
+                    <!-- 頁首 -->
+                    <div class="text-center mb-6">
+                        <h1 class="text-2xl font-bold tracking-widest mb-1">獻主會聖母院書院</h1>
+                        <h2 class="text-xl font-bold tracking-wider mb-4">二零二五年度陸運會</h2>
+                        
+                        <div class="flex justify-between items-end border-b-2 border-black pb-2">
+                            <div class="text-left">
+                                <div class="text-lg font-bold">項目：${category} <span class="text-xl mx-2">${item}</span> ${stage}</div>
+                                <div class="text-sm mt-2">
+                                    比賽日期：<span class="editable-field" contenteditable="true">_____月_____日</span> &nbsp;&nbsp;
+                                    時間：<span class="editable-field" contenteditable="true">__:__</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xl font-bold border-2 border-black px-4 py-1 inline-block bg-gray-100">
+                                    ${role} <span class="text-sm font-normal block">${subtitle}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 紀錄資訊 -->
+                    <div class="flex justify-between text-sm mb-3 font-medium">
+                        <div>
+                            大會紀錄：<span class="editable-field" contenteditable="true">__________________</span> 
+                            (<span class="editable-field" contenteditable="true">年份/保持者</span>)
+                        </div>
+                        <div>文件編號：${copyNum}/4</div>
+                    </div>
+
+                    <!-- 名單表格 -->
+                    <table class="sheet-table">
+                        <thead>
+                            ${tableHeaders}
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+
+                    <!-- 簽名區 -->
+                    <div class="absolute bottom-10 left-10 right-10 flex justify-between text-sm pt-4 border-t border-gray-400 mt-10">
+                        <div>召集員簽署：____________________</div>
+                        <div>裁判長簽署：____________________</div>
+                        <div>紀錄員簽署：____________________</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateStudentRow(student, index, isField) {
+            const name = student.nameZh || student.nameEn || '';
+            const bib = student.bibNumber || '';
+            const cls = `${student.classCode || ''}${student.classNo ? '('+student.classNo+')' : ''}`;
+            
+            if (isField) {
+                return `
+                    <tr>
+                        <td contenteditable="true">${index}</td>
+                        <td class="font-bold">${bib}</td>
+                        <td class="text-left px-2">${name}</td>
+                        <td>${cls}</td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true" class="bg-gray-50"></td>
+                        <td contenteditable="true"></td>
+                    </tr>
+                `;
+            } else {
+                // 徑賽預設排線道，若超過 8 人則重新從 1 開始 (模擬分組)
+                const lane = ((index - 1) % 8) + 1;
+                return `
+                    <tr>
+                        <td contenteditable="true" class="font-bold">${lane}</td>
+                        <td class="font-bold">${bib}</td>
+                        <td class="text-left px-2">${name}</td>
+                        <td>${cls}</td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true" class="text-left text-xs text-gray-500"></td>
+                    </tr>
+                `;
+            }
+        }
+
+        function generateEmptyRow(isField, index) {
+            if (isField) {
+                return `
+                    <tr>
+                        <td contenteditable="true">${index}</td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true" class="bg-gray-50"></td>
+                        <td contenteditable="true"></td>
+                    </tr>
+                `;
+            } else {
+                return `
+                    <tr>
+                        <td contenteditable="true" class="font-bold">${index}</td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                        <td contenteditable="true"></td>
+                    </tr>
+                `;
+            }
+        }
+
+        // 匯出 PDF 功能
+        function exportPDF() {
+            const element = document.getElementById('pdf-wrapper');
+            const eventName = document.getElementById('event-select').value;
+            
+            // 加入 pdf-mode class 以套用列印專用 CSS
+            element.classList.add('pdf-mode');
+
+            const opt = {
+                margin:       0,
+                filename:     `陸運會_${eventName}_紀錄表.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            const btn = document.getElementById('export-btn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 處理中...';
+            btn.disabled = true;
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.classList.remove('pdf-mode');
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>
