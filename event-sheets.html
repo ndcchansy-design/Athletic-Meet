@@ -103,7 +103,7 @@
             
             <div class="mt-4 text-sm text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
                 <i class="fas fa-info-circle text-blue-600 mr-1"></i> 
-                <strong>提示：</strong> 系統已與賽程表連動，比賽編號將自動帶入文件中。徑賽若人數不足 8 人，仍會印出完整的 1-8 線道供裁判記錄。田賽已加入初賽及決賽的 6 次試跳/擲紀錄欄位。
+                <strong>提示：</strong> 系統已與賽程表連動，比賽編號將自動帶入文件中。800m 及 1500m 項目已設定為不分線道，16人或以上自動平均分組。
             </div>
         </div>
     </div>
@@ -155,6 +155,12 @@
         function isFieldEvent(eventName) {
             const fieldKeywords = ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'];
             return fieldKeywords.some(keyword => eventName.includes(keyword));
+        }
+
+        // 判斷是否為長跑項目 (不分線道)
+        function isLongDistance(eventName) {
+            const upperEvent = eventName.toUpperCase();
+            return upperEvent.includes('800M') || upperEvent.includes('1500M');
         }
 
         // 從 Firebase 讀取學生報名與賽程表資料
@@ -216,7 +222,6 @@
                 });
 
                 scheduleData.forEach(item => {
-                    // 支援多種可能的資料庫欄位命名
                     const itemNo = item['項目'] || item.itemNo || item.id || '';
                     const time = item['時間'] || item.time || '';
                     const group = item['女子組'] || item['男子組'] || item.girlsGroup || item.boysGroup || '';
@@ -233,7 +238,6 @@
                 });
             }
             
-            // 如果沒有賽程表資料，或者要補齊未排入賽程的項目
             if (!hasSchedule) {
                 const sortedEvents = Array.from(eventMap.keys()).sort();
                 if (sortedEvents.length === 0) {
@@ -247,7 +251,6 @@
             }
         }
 
-        // 監聽選單變更，自動帶入階段
         document.getElementById('event-select').addEventListener('change', function() {
             const option = this.options[this.selectedIndex];
             if (!option.value) return;
@@ -264,7 +267,7 @@
             const selectedOption = selectElement.options[selectElement.selectedIndex];
             
             const eventName = selectedOption.value;
-            const eventNo = selectedOption.getAttribute('data-itemno') || ''; // 從選項自動獲取編號
+            const eventNo = selectedOption.getAttribute('data-itemno') || ''; 
             const stage = document.getElementById('stage-select').value;
             const eventTime = selectedOption.getAttribute('data-time') || '__:__';
             
@@ -287,62 +290,93 @@
             });
 
             const isField = isFieldEvent(eventName);
+            const isLongDist = isLongDistance(eventName);
             let heats = []; 
 
-            // 判斷是否為直接決賽 (徑賽且人數 <= 8)
-            let isDirectFinal = stage === "決賽" && students.length > 0 && students.length <= 8;
+            if (isField) {
+                // 田賽直接一組 (不分線道)
+                heats.push({ heatName: '', data: students });
+            } else if (isLongDist) {
+                // 長跑項目 (800m, 1500m) 處理邏輯
+                if (stage === "決賽" && students.length === 0) {
+                    // 空白決賽表 (預留 15 行)
+                    let heatData = [];
+                    for (let i = 1; i <= 15; i++) heatData.push({ assignedLane: i, isEmpty: true });
+                    heats.push({ heatName: '', data: heatData });
+                } else {
+                    let numHeats = 1;
+                    // 16人或以上才分組
+                    if (students.length >= 16 && stage !== "決賽") {
+                        numHeats = Math.ceil(students.length / 15); // 預設每組約 15 人
+                    }
+                    
+                    // 平均分配人數
+                    const baseSize = Math.floor(students.length / numHeats);
+                    let remainder = students.length % numHeats;
+                    
+                    let studentIndex = 0;
+                    for (let i = 0; i < numHeats; i++) {
+                        let heatSize = baseSize + (remainder > 0 ? 1 : 0);
+                        remainder--;
+                        
+                        let heatStudents = students.slice(studentIndex, studentIndex + heatSize);
+                        studentIndex += heatSize;
+                        
+                        let heatData = heatStudents.map((stu, idx) => ({ ...stu, assignedLane: idx + 1, isEmpty: false }));
+                        
+                        heats.push({
+                            heatName: numHeats > 1 ? `第 ${i + 1} 組 (Heat ${i + 1})` : '',
+                            data: heatData
+                        });
+                    }
+                }
+            } else {
+                // 一般徑賽分組邏輯 (強制產生 8 條線道)
+                let isDirectFinal = stage === "決賽" && students.length > 0 && students.length <= 8;
 
-            // 處理徑賽分組邏輯 (強制產生 8 條線道)
-            if (!isField && students.length > 0 && (stage !== "決賽" || isDirectFinal)) {
-                const numHeats = Math.ceil(students.length / 8); 
-                const baseSize = Math.floor(students.length / numHeats); 
-                let remainder = students.length % numHeats; 
+                if (students.length > 0 && (stage !== "決賽" || isDirectFinal)) {
+                    const numHeats = Math.ceil(students.length / 8); 
+                    const baseSize = Math.floor(students.length / numHeats); 
+                    let remainder = students.length % numHeats; 
 
-                let studentIndex = 0;
-                for (let i = 0; i < numHeats; i++) {
-                    let heatSize = baseSize + (remainder > 0 ? 1 : 0);
-                    remainder--;
+                    let studentIndex = 0;
+                    for (let i = 0; i < numHeats; i++) {
+                        let heatSize = baseSize + (remainder > 0 ? 1 : 0);
+                        remainder--;
 
-                    let heatStudents = students.slice(studentIndex, studentIndex + heatSize);
-                    studentIndex += heatSize;
+                        let heatStudents = students.slice(studentIndex, studentIndex + heatSize);
+                        studentIndex += heatSize;
 
-                    // 徑賽線道分配次序
-                    const laneOrder = [3, 4, 5, 6, 2, 7, 1, 8];
-                    let assignedLanes = laneOrder.slice(0, heatSize).sort((a, b) => a - b);
+                        const laneOrder = [3, 4, 5, 6, 2, 7, 1, 8];
+                        let assignedLanes = laneOrder.slice(0, heatSize).sort((a, b) => a - b);
 
-                    // 建立完整的 8 條線道陣列
+                        let heatData = [];
+                        for (let lane = 1; lane <= 8; lane++) {
+                            heatData.push({ assignedLane: lane, isEmpty: true });
+                        }
+
+                        heatStudents.forEach((stu, idx) => {
+                            const laneToAssign = assignedLanes[idx];
+                            const laneIndex = heatData.findIndex(d => d.assignedLane === laneToAssign);
+                            if (laneIndex !== -1) {
+                                heatData[laneIndex] = { ...stu, assignedLane: laneToAssign, isEmpty: false };
+                            }
+                        });
+
+                        heats.push({
+                            heatName: numHeats > 1 ? `第 ${i + 1} 組 (Heat ${i + 1})` : '',
+                            data: heatData
+                        });
+                    }
+                } else if (stage === "決賽" && !isDirectFinal) {
                     let heatData = [];
                     for (let lane = 1; lane <= 8; lane++) {
                         heatData.push({ assignedLane: lane, isEmpty: true });
                     }
-
-                    // 將學生填入對應的線道
-                    heatStudents.forEach((stu, idx) => {
-                        const laneToAssign = assignedLanes[idx];
-                        const laneIndex = heatData.findIndex(d => d.assignedLane === laneToAssign);
-                        if (laneIndex !== -1) {
-                            heatData[laneIndex] = { ...stu, assignedLane: laneToAssign, isEmpty: false };
-                        }
-                    });
-
-                    heats.push({
-                        heatName: numHeats > 1 ? `第 ${i + 1} 組 (Heat ${i + 1})` : '',
-                        data: heatData
-                    });
+                    heats.push({ heatName: '', data: heatData });
                 }
-            } else if (!isField && stage === "決賽" && !isDirectFinal) {
-                // 決賽且非直接決賽 (需手寫名單)，產生 8 條空線道
-                let heatData = [];
-                for (let lane = 1; lane <= 8; lane++) {
-                    heatData.push({ assignedLane: lane, isEmpty: true });
-                }
-                heats.push({ heatName: '', data: heatData });
-            } else {
-                // 田賽直接一組 (不分線道)
-                heats.push({ heatName: '', data: students });
             }
             
-            // 一式四份的部門名稱
             const copies = [
                 { role: "召集處", subtitle: "檢錄及點名用" },
                 { role: isField ? "測量處" : "計時處", subtitle: "紀錄成績用" },
@@ -350,17 +384,16 @@
                 { role: "最終紀錄", subtitle: "大會紀錄組存檔" }
             ];
 
-            // 針對每一組 (Heat) 產生 4 份文件
             heats.forEach((heat) => {
                 copies.forEach((copy, index) => {
-                    const pageHTML = buildA4Page(eventNo, eventName, stage, heat.data, isField, copy.role, copy.subtitle, index + 1, heat.heatName, eventTime);
+                    const pageHTML = buildA4Page(eventNo, eventName, stage, heat.data, isField, isLongDist, copy.role, copy.subtitle, index + 1, heat.heatName, eventTime);
                     container.innerHTML += pageHTML;
                 });
             });
         }
 
         // 構建單張 A4 頁面的 HTML
-        function buildA4Page(eventNo, eventName, stage, heatData, isField, role, subtitle, copyNum, heatName, eventTime) {
+        function buildA4Page(eventNo, eventName, stage, heatData, isField, isLongDist, role, subtitle, copyNum, heatName, eventTime) {
             let category = "";
             let item = eventName;
             const parts = eventName.split(' ');
@@ -369,7 +402,7 @@
                 item = parts.slice(1).join(' ');
             }
 
-            const eventNoDisplay = eventNo ? `【${eventNo}】 ` : '';
+            const eventNoDisplay = eventNo ? `【${eventNo}】 ` : '【未編號】 ';
             const heatDisplay = heatName ? ` - ${heatName}` : '';
 
             let tableHeaders = "";
@@ -392,9 +425,11 @@
                     </tr>
                 `;
             } else {
+                // 長跑項目顯示「次序」，一般徑賽顯示「線道」
+                const firstColHeader = isLongDist ? "次序" : "線道";
                 tableHeaders = `
                     <tr>
-                        <th width="6%">線道</th>
+                        <th width="6%">${firstColHeader}</th>
                         <th width="10%">號碼布</th>
                         <th width="25%">姓名</th>
                         <th width="8%">班別</th>
@@ -407,14 +442,12 @@
 
             let tableRows = "";
             if (isField && heatData.length === 0 && stage === "決賽") {
-                // 田賽決賽空表 (留 8 行)
                 for(let i=1; i<=8; i++) {
-                    tableRows += generateStudentRow({ isEmpty: true }, i, isField);
+                    tableRows += generateStudentRow({ isEmpty: true }, i, isField, isLongDist);
                 }
             } else {
                 heatData.forEach((stu, idx) => {
-                    // 田賽傳入 idx + 1 作為次序，徑賽則使用 stu.assignedLane
-                    tableRows += generateStudentRow(stu, idx + 1, isField);
+                    tableRows += generateStudentRow(stu, idx + 1, isField, isLongDist);
                 });
             }
 
@@ -470,7 +503,7 @@
             `;
         }
 
-        function generateStudentRow(student, index, isField) {
+        function generateStudentRow(student, index, isField, isLongDist) {
             if (isField) {
                 if (student.isEmpty) {
                     return `
@@ -514,7 +547,7 @@
                     `;
                 }
             } else {
-                // 徑賽 (一定會有 8 條線道傳入)
+                // 徑賽 (含長跑)
                 if (student.isEmpty) {
                     return `
                         <tr>
@@ -554,9 +587,9 @@
             const selectedOption = selectElement.options[selectElement.selectedIndex];
             
             const eventName = selectedOption.value;
-            const eventNo = selectedOption.getAttribute('data-itemno') || '';
+            const eventNo = selectedOption.getAttribute('data-itemno') || '未編號';
             
-            const fileNamePrefix = eventNo ? `【${eventNo}】_` : '';
+            const fileNamePrefix = `【${eventNo}】_`;
             
             element.classList.add('pdf-mode');
 
