@@ -62,7 +62,6 @@
                 <button onclick="window.initSystem()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm transition shadow flex items-center">
                     <i class="fas fa-sync-alt mr-2"></i> 從 Firebase 同步
                 </button>
-                <!-- 新增：儲存至資料庫按鈕 -->
                 <button onclick="window.saveScheduleToFirebase()" id="save-db-btn" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-4 py-2 rounded text-sm font-bold transition shadow flex items-center">
                     <i class="fas fa-database mr-2"></i> 儲存賽程至資料庫
                 </button>
@@ -138,7 +137,6 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        // 引入 doc, setDoc, deleteDoc 用於寫入資料庫
         import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -154,7 +152,6 @@
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             
-            // 將 Firebase 方法掛載到 window，讓外部函數可以使用
             window.db = db;
             window.collection = collection;
             window.getDocs = getDocs;
@@ -332,7 +329,6 @@
             }
 
             appData = [];
-            let completedStraightFinals = new Set(); 
 
             for (let row of defaultData) {
                 if (row.type === 'divider') {
@@ -359,6 +355,11 @@
                 row.final = '';
 
                 let isRelay = eventName.includes('接力');
+                let isField = row.field !== '';
+                let isTrack = row.track !== '';
+                let upperEvent = eventName.toUpperCase();
+                let isLongDistance = upperEvent.includes('800M') || upperEvent.includes('1500M');
+                let isShortDistance = isTrack && !isLongDistance && !isRelay;
 
                 if (isRelay) {
                     row.isValidEvent = true;
@@ -366,49 +367,46 @@
                 } else if (count <= 1) {
                     row.isValidEvent = false;
                 } else {
-                    if (row.field) {
+                    if (isField) {
+                        // 1. 所有田項 都是初賽 決賽 一拼舉行 所以我們文件都寫決賽
                         row.isValidEvent = true;
-                        row.final = count;
-                    } else if (row.track) {
-                        let isLongDistance = eventName.includes('800m') || eventName.includes('1500m');
-
-                        if (isLongDistance) {
-                            if (count >= 17) { // 配合紀錄表系統，17人或以上才分組
-                                row.isValidEvent = true;
-                                if (row.day === 1) {
-                                    let heatCount = Math.ceil(count / 15);
-                                    row.heat = 'H' + heatCount;
-                                } else {
-                                    row.final = 'F';
-                                }
-                            } else {
-                                if (completedStraightFinals.has(format1)) {
-                                    row.isValidEvent = false;
-                                } else {
-                                    row.isValidEvent = true;
-                                    row.final = count;
-                                    completedStraightFinals.add(format1);
-                                }
+                        row.heat = '';
+                        row.final = count; // 顯示人數，代表直接決賽
+                    } else if (isShortDistance) {
+                        // 2. 短跑各組 100m、 100m 跨欄、200M、及 400M
+                        if (count >= 9) {
+                            row.isValidEvent = true;
+                            if (row.day === 1) {
+                                row.heat = 'H' + Math.ceil(count / 8);
+                                row.final = '';
+                            } else if (row.day === 2) {
+                                row.heat = '';
+                                row.final = 'F';
                             }
-                        } else {
-                            if (count >= 2 && count <= 8) {
-                                if (completedStraightFinals.has(format1)) {
-                                    row.isValidEvent = false;
-                                } else {
-                                    row.isValidEvent = true;
-                                    row.final = count;
-                                    completedStraightFinals.add(format1);
-                                }
-                            } else if (count >= 9) {
+                        } else if (count >= 2 && count <= 8) {
+                            // 第一天已直接跑 FINAL， 第二天沒有此項目
+                            if (row.day === 1) {
                                 row.isValidEvent = true;
-                                if (row.day === 1) {
-                                    let heatCount = Math.ceil(count / 8);
-                                    row.heat = 'H' + heatCount;
-                                } else {
-                                    row.final = 'F';
-                                }
+                                row.heat = '';
+                                row.final = count;
+                            } else if (row.day === 2) {
+                                row.isValidEvent = false;
                             }
                         }
+                    } else if (isLongDistance) {
+                        // 3. 各組嘅1500M，800M 如多過 16人報名會分 HEAT 跑 ，但會合併計時出成績，不會有 FINAL 賽
+                        row.isValidEvent = true;
+                        if (count >= 17) {
+                            row.heat = 'H' + Math.ceil(count / 15);
+                            row.final = '';
+                        } else {
+                            row.heat = '';
+                            row.final = count;
+                        }
+                        
+                        // 防呆：確保 1500M 只在第一天，800M 只在第二天
+                        if (upperEvent.includes('1500M') && row.day === 2) row.isValidEvent = false;
+                        if (upperEvent.includes('800M') && row.day === 1) row.isValidEvent = false;
                     }
                 }
                 appData.push(row);
@@ -493,7 +491,6 @@
             else { btnAll.classList.add('text-blue-800', 'border-blue-800'); day1.classList.remove('hidden'); day2.classList.remove('hidden'); }
         };
 
-        // 新增：將賽程表寫入 Firebase
         window.saveScheduleToFirebase = async function() {
             if (!window.db) {
                 alert("Firebase 尚未連線！");
@@ -508,7 +505,6 @@
             btn.disabled = true;
 
             try {
-                // 1. 先清空舊的 schedule 資料
                 const scheduleSnap = await window.getDocs(window.collection(window.db, "schedule"));
                 const deletePromises = [];
                 scheduleSnap.forEach(d => {
@@ -516,24 +512,22 @@
                 });
                 await Promise.all(deletePromises);
 
-                // 2. 寫入新的賽程資料
                 let itemCounter = 1;
                 const savePromises = [];
 
                 appData.forEach((row) => {
                     if (row.type !== 'divider' && row.isValidEvent) {
                         const eventData = {
-                            itemNo: itemCounter.toString(), // 寫入項目編號
+                            itemNo: itemCounter.toString(), 
                             time: row.time || '',
                             trackEvent: row.track || '',
                             fieldEvent: row.field || '',
                             girlsGroup: row.girls || '',
                             boysGroup: row.boys || '',
-                            heats: row.heat ? true : false, // 有 heat 字眼代表是初賽
+                            heats: row.heat ? true : false, 
                             day: row.day
                         };
                         
-                        // 讓 Firebase 自動產生 ID，並寫入資料
                         savePromises.push(window.setDoc(window.doc(window.collection(window.db, "schedule")), eventData));
                         itemCounter++;
                     }
