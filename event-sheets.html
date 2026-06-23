@@ -18,7 +18,9 @@
             background: white;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             padding: 15mm;
-            position: relative;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column; /* 使用 Flexbox 垂直排列 */
         }
         
         /* 表格樣式 */
@@ -103,7 +105,7 @@
             
             <div class="mt-4 text-sm text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
                 <i class="fas fa-info-circle text-blue-600 mr-1"></i> 
-                <strong>提示：</strong> 當單組人數超過 25 人時，系統會自動分頁。800m 及 1500m 項目 17 人或以上才會自動平均分組。
+                <strong>提示：</strong> 當單組人數超過 20 人時，系統會自動分頁。800m 及 1500m 項目 17 人或以上才會自動平均分組。
             </div>
         </div>
     </div>
@@ -382,8 +384,8 @@
                 }
             }
             
-            // 設定每頁最大行數，避免表格超出 A4 範圍
-            const ROWS_PER_PAGE = 25; 
+            // 【重要修改】將每頁最大行數下調至 20 行，確保有足夠空間留給簽名區
+            const ROWS_PER_PAGE = 20; 
 
             const copies = [
                 { role: "召集處", subtitle: "檢錄及點名用" },
@@ -394,11 +396,9 @@
 
             heats.forEach((heat) => {
                 copies.forEach((copy, index) => {
-                    // 計算這個組別需要幾頁
                     const totalPages = Math.ceil(heat.data.length / ROWS_PER_PAGE) || 1;
                     
                     for (let p = 0; p < totalPages; p++) {
-                        // 擷取當前頁面的資料區塊 (Chunk)
                         const chunk = heat.data.slice(p * ROWS_PER_PAGE, (p + 1) * ROWS_PER_PAGE);
                         
                         const pageHTML = buildA4Page(
@@ -412,7 +412,6 @@
             });
         }
 
-        // 新增了分頁參數：currentPage, totalPages, startIndex
         function buildA4Page(eventNo, eventName, stage, heatData, isField, isLongDist, role, subtitle, copyNum, heatName, eventTime, currentPage = 1, totalPages = 1, startIndex = 0) {
             let category = "";
             let item = eventName;
@@ -427,8 +426,6 @@
                 : `【<span class="editable-field" contenteditable="true" style="min-width: 30px; display: inline-block; text-align: center;">未編號</span>】 `;
                 
             const heatDisplay = heatName ? ` - ${heatName}` : '';
-            
-            // 如果有多頁，在標題顯示頁碼
             const pageIndicator = totalPages > 1 ? `<span class="text-base ml-2 text-gray-600 font-normal">(第 ${currentPage}/${totalPages} 頁)</span>` : '';
 
             let tableHeaders = "";
@@ -472,55 +469,57 @@
                 }
             } else {
                 heatData.forEach((stu, idx) => {
-                    // 傳入正確的次序編號 (startIndex + idx + 1)
                     tableRows += generateStudentRow(stu, startIndex + idx + 1, isField, isLongDist);
                 });
             }
 
             return `
                 <div class="a4-container">
-                    <!-- 頁首 -->
-                    <div class="text-center mb-6">
-                        <h1 class="text-2xl font-bold tracking-widest mb-1">獻主會聖母院書院</h1>
-                        <h2 class="text-xl font-bold tracking-wider mb-4">二零二五年度陸運會</h2>
-                        
-                        <div class="flex justify-between items-end border-b-2 border-black pb-2">
-                            <div class="text-left">
-                                <div class="text-lg font-bold">項目：${eventNoDisplay}${category} <span class="text-xl mx-2">${item}</span> ${stage}${heatDisplay}${pageIndicator}</div>
-                                <div class="text-sm mt-2">
-                                    比賽日期：<span class="editable-field" contenteditable="true">_____月_____日</span> &nbsp;&nbsp;
-                                    時間：<span class="editable-field" contenteditable="true">${eventTime}</span>
+                    <!-- 上半部內容區塊 (flex-1 會自動填滿剩餘空間，把簽名區往下推) -->
+                    <div class="flex-1">
+                        <!-- 頁首 -->
+                        <div class="text-center mb-6">
+                            <h1 class="text-2xl font-bold tracking-widest mb-1">獻主會聖母院書院</h1>
+                            <h2 class="text-xl font-bold tracking-wider mb-4">二零二五年度陸運會</h2>
+                            
+                            <div class="flex justify-between items-end border-b-2 border-black pb-2">
+                                <div class="text-left">
+                                    <div class="text-lg font-bold">項目：${eventNoDisplay}${category} <span class="text-xl mx-2">${item}</span> ${stage}${heatDisplay}${pageIndicator}</div>
+                                    <div class="text-sm mt-2">
+                                        比賽日期：<span class="editable-field" contenteditable="true">_____月_____日</span> &nbsp;&nbsp;
+                                        時間：<span class="editable-field" contenteditable="true">${eventTime}</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-xl font-bold border-2 border-black px-4 py-1 inline-block bg-gray-100">
-                                    ${role} <span class="text-sm font-normal block">${subtitle}</span>
+                                <div class="text-right">
+                                    <div class="text-xl font-bold border-2 border-black px-4 py-1 inline-block bg-gray-100">
+                                        ${role} <span class="text-sm font-normal block">${subtitle}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- 紀錄資訊 -->
-                    <div class="flex justify-between text-sm mb-3 font-medium">
-                        <div>
-                            大會紀錄：<span class="editable-field" contenteditable="true">__________________</span> 
-                            (<span class="editable-field" contenteditable="true">年份/保持者</span>)
+                        <!-- 紀錄資訊 -->
+                        <div class="flex justify-between text-sm mb-3 font-medium">
+                            <div>
+                                大會紀錄：<span class="editable-field" contenteditable="true">__________________</span> 
+                                (<span class="editable-field" contenteditable="true">年份/保持者</span>)
+                            </div>
+                            <div>文件編號：${copyNum}/4</div>
                         </div>
-                        <div>文件編號：${copyNum}/4</div>
+
+                        <!-- 名單表格 -->
+                        <table class="sheet-table">
+                            <thead>
+                                ${tableHeaders}
+                            </thead>
+                            <tbody>
+                                ${tableRows}
+                            </tbody>
+                        </table>
                     </div>
 
-                    <!-- 名單表格 -->
-                    <table class="sheet-table">
-                        <thead>
-                            ${tableHeaders}
-                        </thead>
-                        <tbody>
-                            ${tableRows}
-                        </tbody>
-                    </table>
-
-                    <!-- 簽名區 (修正定位方式，確保與紙張邊界安全對齊) -->
-                    <div class="absolute flex justify-between text-sm pt-4 border-t border-gray-400" style="bottom: 15mm; left: 15mm; right: 15mm;">
+                    <!-- 簽名區 (移除 absolute，改為 auto margin-top 貼齊底部) -->
+                    <div class="flex justify-between text-sm pt-4 border-t border-gray-400 mt-8">
                         <div>召集員簽署：____________________</div>
                         <div>裁判長簽署：____________________</div>
                         <div>紀錄員簽署：____________________</div>
