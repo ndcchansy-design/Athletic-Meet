@@ -103,7 +103,7 @@
             
             <div class="mt-4 text-sm text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
                 <i class="fas fa-info-circle text-blue-600 mr-1"></i> 
-                <strong>提示：</strong> 800m 及 1500m 項目已設定為不分線道，<strong>17人或以上</strong>才會自動平均分組。若抓不到項目編號，可直接在生成的文件上點擊「未編號」手動輸入。
+                <strong>提示：</strong> 當單組人數超過 25 人時，系統會自動分頁。800m 及 1500m 項目 17 人或以上才會自動平均分組。
             </div>
         </div>
     </div>
@@ -148,10 +148,10 @@
 
     <script>
         let globalStudentsData = [];
-        let eventMap = new Map(); // 儲存正規化後的報名資料
+        let eventMap = new Map();
         let scheduleData = [];
 
-        // 新增：字串正規化函數 (確保賽程表與報名表的項目名稱能完美配對)
+        // 字串正規化函數 (確保賽程表與報名表的項目名稱能完美配對)
         const normalizeString = (str) => {
             if (!str) return '';
             let s = str.replace(/\s+/g, '').toUpperCase();
@@ -163,24 +163,20 @@
             return s;
         };
 
-        // 判斷是否為田賽
         function isFieldEvent(eventName) {
             const fieldKeywords = ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'];
             return fieldKeywords.some(keyword => eventName.includes(keyword));
         }
 
-        // 判斷是否為長跑項目 (不分線道)
         function isLongDistance(eventName) {
             const upperEvent = eventName.toUpperCase();
             return upperEvent.includes('800M') || upperEvent.includes('1500M');
         }
 
-        // 從 Firebase 讀取學生報名與賽程表資料
         async function fetchAllData() {
             if (!window.db || !window.getDocs || !window.collection) return;
             
             try {
-                // 1. 讀取學生報名資料
                 const studentSnap = await window.getDocs(window.collection(window.db, "students"));
                 globalStudentsData = [];
                 eventMap.clear();
@@ -191,7 +187,6 @@
                     
                     if (student.registeredEvents && Array.isArray(student.registeredEvents)) {
                         student.registeredEvents.forEach(ev => {
-                            // 將學生的報名項目正規化後存入 Map
                             const normalizedEv = normalizeString(ev);
                             if (!eventMap.has(normalizedEv)) eventMap.set(normalizedEv, []);
                             eventMap.get(normalizedEv).push(student);
@@ -199,7 +194,6 @@
                     }
                 });
 
-                // 2. 讀取賽程表資料 (schedule)
                 try {
                     const scheduleSnap = await window.getDocs(window.collection(window.db, "schedule"));
                     scheduleData = [];
@@ -218,7 +212,6 @@
             }
         }
 
-        // 填充下拉選單
         function populateDropdown() {
             const select = document.getElementById('event-select');
             select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
@@ -228,7 +221,6 @@
             if (scheduleData && scheduleData.length > 0) {
                 hasSchedule = true;
                 
-                // 依照項目編號排序
                 scheduleData.sort((a, b) => {
                     const numA = parseInt(a['項目'] || a.itemNo || a.id) || 0;
                     const numB = parseInt(b['項目'] || b.itemNo || b.id) || 0;
@@ -242,15 +234,12 @@
                     const event = item['徑項'] || item['田項'] || item.trackEvent || item.fieldEvent || '';
                     const stage = (item['初賽'] || item.heats) ? '初賽' : '決賽';
                     
-                    // 顯示用的漂亮名稱 (例如: 女子乙組 鐵餅)
                     const fullEventName = `${group} ${event}`.trim();
                     
                     if (fullEventName) {
-                        // 產生用來找資料的 Key (例如: 鐵餅女子乙組)
                         const format1 = normalizeString(`${event}${group}`);
                         const format2 = normalizeString(`${group}${event}`);
                         
-                        // 判斷資料庫是用哪種格式儲存的
                         let matchKey = format1;
                         if (eventMap.has(format2)) matchKey = format2;
 
@@ -261,7 +250,6 @@
                 });
             }
             
-            // 如果賽程表沒資料，退回使用學生報名資料生成選項
             if (!hasSchedule) {
                 const sortedEvents = Array.from(eventMap.keys()).sort();
                 if (sortedEvents.length === 0) {
@@ -285,13 +273,12 @@
             }
         });
 
-        // 生成文件核心邏輯
         function generateSheets() {
             const selectElement = document.getElementById('event-select');
             const selectedOption = selectElement.options[selectElement.selectedIndex];
             
-            const eventName = selectedOption.value; // 顯示用的名稱
-            const matchKey = selectedOption.getAttribute('data-matchkey'); // 找資料用的 Key
+            const eventName = selectedOption.value;
+            const matchKey = selectedOption.getAttribute('data-matchkey');
             const eventNo = selectedOption.getAttribute('data-itemno') || ''; 
             const stage = document.getElementById('stage-select').value;
             const eventTime = selectedOption.getAttribute('data-time') || '__:__';
@@ -306,10 +293,8 @@
             const container = document.getElementById('pages-container');
             container.innerHTML = ''; 
 
-            // 使用 matchKey 來尋找學生名單
             let students = eventMap.get(matchKey) || [];
             
-            // 排序學生：按班別 -> 班號
             students.sort((a, b) => {
                 if (a.classCode === b.classCode) return (a.classNo || 0) - (b.classNo || 0);
                 return (a.classCode || '').localeCompare(b.classCode || '');
@@ -320,23 +305,18 @@
             let heats = []; 
 
             if (isField) {
-                // 田賽直接一組 (不分線道)
                 heats.push({ heatName: '', data: students });
             } else if (isLongDist) {
-                // 長跑項目 (800m, 1500m) 處理邏輯
                 if (stage === "決賽" && students.length === 0) {
-                    // 空白決賽表 (預留 15 行)
                     let heatData = [];
                     for (let i = 1; i <= 15; i++) heatData.push({ assignedLane: i, isEmpty: true });
                     heats.push({ heatName: '', data: heatData });
                 } else {
                     let numHeats = 1;
-                    // 17人或以上才分組 (16人仍是一組直接決賽)
                     if (students.length >= 17 && stage !== "決賽") {
-                        numHeats = Math.ceil(students.length / 15); // 預設每組約 15 人
+                        numHeats = Math.ceil(students.length / 15);
                     }
                     
-                    // 平均分配人數
                     const baseSize = Math.floor(students.length / numHeats);
                     let remainder = students.length % numHeats;
                     
@@ -357,7 +337,6 @@
                     }
                 }
             } else {
-                // 一般徑賽分組邏輯 (強制產生 8 條線道)
                 let isDirectFinal = stage === "決賽" && students.length > 0 && students.length <= 8;
 
                 if (students.length > 0 && (stage !== "決賽" || isDirectFinal)) {
@@ -403,6 +382,9 @@
                 }
             }
             
+            // 設定每頁最大行數，避免表格超出 A4 範圍
+            const ROWS_PER_PAGE = 25; 
+
             const copies = [
                 { role: "召集處", subtitle: "檢錄及點名用" },
                 { role: isField ? "測量處" : "計時處", subtitle: "紀錄成績用" },
@@ -412,14 +394,26 @@
 
             heats.forEach((heat) => {
                 copies.forEach((copy, index) => {
-                    const pageHTML = buildA4Page(eventNo, eventName, stage, heat.data, isField, isLongDist, copy.role, copy.subtitle, index + 1, heat.heatName, eventTime);
-                    container.innerHTML += pageHTML;
+                    // 計算這個組別需要幾頁
+                    const totalPages = Math.ceil(heat.data.length / ROWS_PER_PAGE) || 1;
+                    
+                    for (let p = 0; p < totalPages; p++) {
+                        // 擷取當前頁面的資料區塊 (Chunk)
+                        const chunk = heat.data.slice(p * ROWS_PER_PAGE, (p + 1) * ROWS_PER_PAGE);
+                        
+                        const pageHTML = buildA4Page(
+                            eventNo, eventName, stage, chunk, isField, isLongDist, 
+                            copy.role, copy.subtitle, index + 1, heat.heatName, eventTime,
+                            p + 1, totalPages, p * ROWS_PER_PAGE
+                        );
+                        container.innerHTML += pageHTML;
+                    }
                 });
             });
         }
 
-        // 構建單張 A4 頁面的 HTML
-        function buildA4Page(eventNo, eventName, stage, heatData, isField, isLongDist, role, subtitle, copyNum, heatName, eventTime) {
+        // 新增了分頁參數：currentPage, totalPages, startIndex
+        function buildA4Page(eventNo, eventName, stage, heatData, isField, isLongDist, role, subtitle, copyNum, heatName, eventTime, currentPage = 1, totalPages = 1, startIndex = 0) {
             let category = "";
             let item = eventName;
             const parts = eventName.split(' ');
@@ -428,12 +422,14 @@
                 item = parts.slice(1).join(' ');
             }
 
-            // 如果沒有編號，提供一個可編輯的區域讓老師手動輸入
             const eventNoDisplay = eventNo 
                 ? `【${eventNo}】 ` 
                 : `【<span class="editable-field" contenteditable="true" style="min-width: 30px; display: inline-block; text-align: center;">未編號</span>】 `;
                 
             const heatDisplay = heatName ? ` - ${heatName}` : '';
+            
+            // 如果有多頁，在標題顯示頁碼
+            const pageIndicator = totalPages > 1 ? `<span class="text-base ml-2 text-gray-600 font-normal">(第 ${currentPage}/${totalPages} 頁)</span>` : '';
 
             let tableHeaders = "";
             if (isField) {
@@ -455,7 +451,6 @@
                     </tr>
                 `;
             } else {
-                // 長跑項目顯示「次序」，一般徑賽顯示「線道」
                 const firstColHeader = isLongDist ? "次序" : "線道";
                 tableHeaders = `
                     <tr>
@@ -477,7 +472,8 @@
                 }
             } else {
                 heatData.forEach((stu, idx) => {
-                    tableRows += generateStudentRow(stu, idx + 1, isField, isLongDist);
+                    // 傳入正確的次序編號 (startIndex + idx + 1)
+                    tableRows += generateStudentRow(stu, startIndex + idx + 1, isField, isLongDist);
                 });
             }
 
@@ -490,7 +486,7 @@
                         
                         <div class="flex justify-between items-end border-b-2 border-black pb-2">
                             <div class="text-left">
-                                <div class="text-lg font-bold">項目：${eventNoDisplay}${category} <span class="text-xl mx-2">${item}</span> ${stage}${heatDisplay}</div>
+                                <div class="text-lg font-bold">項目：${eventNoDisplay}${category} <span class="text-xl mx-2">${item}</span> ${stage}${heatDisplay}${pageIndicator}</div>
                                 <div class="text-sm mt-2">
                                     比賽日期：<span class="editable-field" contenteditable="true">_____月_____日</span> &nbsp;&nbsp;
                                     時間：<span class="editable-field" contenteditable="true">${eventTime}</span>
@@ -523,8 +519,8 @@
                         </tbody>
                     </table>
 
-                    <!-- 簽名區 -->
-                    <div class="absolute bottom-10 left-10 right-10 flex justify-between text-sm pt-4 border-t border-gray-400 mt-10">
+                    <!-- 簽名區 (修正定位方式，確保與紙張邊界安全對齊) -->
+                    <div class="absolute flex justify-between text-sm pt-4 border-t border-gray-400" style="bottom: 15mm; left: 15mm; right: 15mm;">
                         <div>召集員簽署：____________________</div>
                         <div>裁判長簽署：____________________</div>
                         <div>紀錄員簽署：____________________</div>
@@ -577,7 +573,6 @@
                     `;
                 }
             } else {
-                // 徑賽 (含長跑)
                 if (student.isEmpty) {
                     return `
                         <tr>
@@ -610,7 +605,6 @@
             }
         }
 
-        // 匯出 PDF 功能
         function exportPDF() {
             const element = document.getElementById('pdf-wrapper');
             const selectElement = document.getElementById('event-select');
@@ -619,7 +613,6 @@
             const eventName = selectedOption.value;
             const eventNo = selectedOption.getAttribute('data-itemno') || '';
             
-            // 如果沒有編號，檔名就不加編號前綴
             const fileNamePrefix = eventNo ? `【${eventNo}】_` : '';
             
             element.classList.add('pdf-mode');
