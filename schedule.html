@@ -236,7 +236,15 @@
             { day: 2, time: '08:30', track: '', field: '標槍', girls: '', boys: '男子乙組' },
             { day: 2, time: '08:30', track: '', field: '跳高', girls: '女子甲組', boys: '' },
             { day: 2, time: '08:35', track: '', field: '鉛球', girls: '女子甲組', boys: '' },
+            
+            // 補齊 Day 2 的 400m 所有組別
+            { day: 2, time: '08:40', track: '400m', field: '', girls: '女子丙組', boys: '' },
+            { day: 2, time: '08:40', track: '400m', field: '', girls: '女子乙組', boys: '' },
+            { day: 2, time: '08:40', track: '400m', field: '', girls: '女子甲組', boys: '' },
+            { day: 2, time: '08:45', track: '400m', field: '', girls: '', boys: '男子丙組' },
+            { day: 2, time: '08:45', track: '400m', field: '', girls: '', boys: '男子乙組' },
             { day: 2, time: '08:45', track: '400m', field: '', girls: '', boys: '男子甲組' },
+
             { day: 2, time: '08:50', track: '100m', field: '', girls: '女子丙組', boys: '' },
             { day: 2, time: '08:50', track: '100m', field: '', girls: '女子乙組', boys: '' },
             { day: 2, time: '08:55', track: '100m', field: '', girls: '女子甲組', boys: '' },
@@ -253,10 +261,15 @@
             { day: 2, time: '09:25', track: '', field: '鉛球', girls: '女子乙組', boys: '' },
             { day: 2, time: '09:25', track: '800m', field: '', girls: '', boys: '男子乙組' },
             { day: 2, time: '09:30', track: '800m', field: '', girls: '', boys: '男子甲組' },
+            
+            // 補齊 Day 2 的 200m 所有組別 (原本漏了女丙和男甲)
+            { day: 2, time: '09:40', track: '200m', field: '', girls: '女子丙組', boys: '' },
             { day: 2, time: '09:40', track: '200m', field: '', girls: '女子乙組', boys: '' },
             { day: 2, time: '09:40', track: '200m', field: '', girls: '女子甲組', boys: '' },
             { day: 2, time: '09:45', track: '200m', field: '', girls: '', boys: '男子丙組' },
             { day: 2, time: '09:45', track: '200m', field: '', girls: '', boys: '男子乙組' },
+            { day: 2, time: '09:45', track: '200m', field: '', girls: '', boys: '男子甲組' },
+
             { day: 2, time: '09:55', track: '中一級男子 4x100m 接力', field: '', girls: '', boys: '' },
             { day: 2, time: '10:05', track: '中二級男子 4x100m 接力', field: '', girls: '', boys: '' },
             { day: 2, time: '10:15', track: '中三級男子 4x100m 接力', field: '', girls: '', boys: '' },
@@ -368,12 +381,10 @@
                     row.isValidEvent = false;
                 } else {
                     if (isField) {
-                        // 1. 所有田項 都是初賽 決賽 一拼舉行 所以我們文件都寫決賽
                         row.isValidEvent = true;
                         row.heat = '';
-                        row.final = count; // 顯示人數，代表直接決賽
+                        row.final = count; 
                     } else if (isShortDistance) {
-                        // 2. 短跑各組 100m、 100m 跨欄、200M、及 400M
                         if (count >= 9) {
                             row.isValidEvent = true;
                             if (row.day === 1) {
@@ -384,7 +395,6 @@
                                 row.final = 'F';
                             }
                         } else if (count >= 2 && count <= 8) {
-                            // 第一天已直接跑 FINAL， 第二天沒有此項目
                             if (row.day === 1) {
                                 row.isValidEvent = true;
                                 row.heat = '';
@@ -394,7 +404,6 @@
                             }
                         }
                     } else if (isLongDistance) {
-                        // 3. 各組嘅1500M，800M 如多過 16人報名會分 HEAT 跑 ，但會合併計時出成績，不會有 FINAL 賽
                         row.isValidEvent = true;
                         if (count >= 17) {
                             row.heat = 'H' + Math.ceil(count / 15);
@@ -404,7 +413,6 @@
                             row.final = count;
                         }
                         
-                        // 防呆：確保 1500M 只在第一天，800M 只在第二天
                         if (upperEvent.includes('1500M') && row.day === 2) row.isValidEvent = false;
                         if (upperEvent.includes('800M') && row.day === 1) row.isValidEvent = false;
                     }
