@@ -62,6 +62,10 @@
                 <button onclick="window.initSystem()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm transition shadow flex items-center">
                     <i class="fas fa-sync-alt mr-2"></i> 從 Firebase 同步
                 </button>
+                <!-- 新增：儲存至資料庫按鈕 -->
+                <button onclick="window.saveScheduleToFirebase()" id="save-db-btn" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-4 py-2 rounded text-sm font-bold transition shadow flex items-center">
+                    <i class="fas fa-database mr-2"></i> 儲存賽程至資料庫
+                </button>
                 <button onclick="window.exportPDF()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm font-bold transition shadow flex items-center">
                     <i class="fas fa-file-pdf mr-2"></i> 匯出 A4 PDF
                 </button>
@@ -134,7 +138,8 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        // 引入 doc, setDoc, deleteDoc 用於寫入資料庫
+        import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB6N110dVd8_T9tygXEApjTPsQC5HsF0IQ",
@@ -148,6 +153,14 @@
         try {
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
+            
+            // 將 Firebase 方法掛載到 window，讓外部函數可以使用
+            window.db = db;
+            window.collection = collection;
+            window.getDocs = getDocs;
+            window.doc = doc;
+            window.setDoc = setDoc;
+            window.deleteDoc = deleteDoc;
         } catch (error) {
             console.error("Firebase 初始化失敗：", error);
         }
@@ -269,7 +282,7 @@
             "跳遠女子乙組": 16, "壘球女子丙組": 9, "鉛球男子乙組": 12, 
             "跳高男子乙組": 9, "1500M女子乙組": 3, "鐵餅男子丙組": 9, 
             "1500M女子甲組": 11, "1500M男子乙組": 6, "壘球男子丙組": 10, 
-            "1500M男子甲組": 18, /* 測試用：調高至 18 人以觸發初賽機制 */
+            "1500M男子甲組": 18, 
             "壘球女子乙組": 12, "跳高男子甲組": 8,
             "跳遠女子甲組": 7, "鉛球男子甲組": 19, "200M女子丙組": 5, 
             "跳遠男子丙組": 24, "200M女子乙組": 15, "200M女子甲組": 15, 
@@ -279,7 +292,7 @@
             "跳高女子乙組": 3, "跳遠男子乙組": 13, "800M女子乙組": 4, 
             "鐵餅男子甲組": 17, "跳遠女子丙組": 12, "800M女子甲組": 3, 
             "800M男子丙組": 7, "鉛球女子乙組": 10, "800M男子乙組": 7, 
-            "800M男子甲組": 18, /* 測試用：調高至 18 人以觸發初賽機制 */
+            "800M男子甲組": 18, 
             "100M跨欄女子丙組": 0, "100M跨欄女子乙組": 5, "100M跨欄女子甲組": 12,
             "100M跨欄男子丙組": 1, "100M跨欄男子乙組": 15, "100M跨欄男子甲組": 8
         };
@@ -303,7 +316,7 @@
             try {
                 eventCountMap.clear();
                 if (!isMockMode) {
-                    const studentSnap = await getDocs(collection(db, "students"));
+                    const studentSnap = await window.getDocs(window.collection(window.db, "students"));
                     studentSnap.forEach((doc) => {
                         const student = doc.data();
                         if (student.registeredEvents && Array.isArray(student.registeredEvents)) {
@@ -348,11 +361,9 @@
                 let isRelay = eventName.includes('接力');
 
                 if (isRelay) {
-                    // 接力項目不經系統報名，永遠保留並直接進入決賽
                     row.isValidEvent = true;
                     row.final = 'F';
                 } else if (count <= 1) {
-                    // 非接力項目，人數少於或等於 1 人則取消
                     row.isValidEvent = false;
                 } else {
                     if (row.field) {
@@ -362,17 +373,15 @@
                         let isLongDistance = eventName.includes('800m') || eventName.includes('1500m');
 
                         if (isLongDistance) {
-                            // 800m 及 1500m：16人或以上才分 Heat
-                            if (count >= 16) {
+                            if (count >= 17) { // 配合紀錄表系統，17人或以上才分組
                                 row.isValidEvent = true;
                                 if (row.day === 1) {
-                                    let heatCount = Math.ceil(count / 15); // 假設長跑每組約 15 人
+                                    let heatCount = Math.ceil(count / 15);
                                     row.heat = 'H' + heatCount;
                                 } else {
                                     row.final = 'F';
                                 }
                             } else {
-                                // 2 至 15 人：直入決賽
                                 if (completedStraightFinals.has(format1)) {
                                     row.isValidEvent = false;
                                 } else {
@@ -382,7 +391,6 @@
                                 }
                             }
                         } else {
-                            // 其他徑項 (100m, 200m, 400m, 跨欄)：9人或以上分 Heat
                             if (count >= 2 && count <= 8) {
                                 if (completedStraightFinals.has(format1)) {
                                     row.isValidEvent = false;
@@ -483,6 +491,63 @@
             if (tab === 1) { btn1.classList.add('text-blue-800', 'border-blue-800'); day1.classList.remove('hidden'); day2.classList.add('hidden'); }
             else if (tab === 2) { btn2.classList.add('text-blue-800', 'border-blue-800'); day1.classList.add('hidden'); day2.classList.remove('hidden'); }
             else { btnAll.classList.add('text-blue-800', 'border-blue-800'); day1.classList.remove('hidden'); day2.classList.remove('hidden'); }
+        };
+
+        // 新增：將賽程表寫入 Firebase
+        window.saveScheduleToFirebase = async function() {
+            if (!window.db) {
+                alert("Firebase 尚未連線！");
+                return;
+            }
+            
+            if (!confirm("確定要將目前的賽程表（包含項目編號）儲存到資料庫嗎？\n\n這將會覆蓋舊的資料，並讓「比賽紀錄表生成系統」讀取到最新的項目編號。")) return;
+
+            const btn = document.getElementById('save-db-btn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 儲存中...';
+            btn.disabled = true;
+
+            try {
+                // 1. 先清空舊的 schedule 資料
+                const scheduleSnap = await window.getDocs(window.collection(window.db, "schedule"));
+                const deletePromises = [];
+                scheduleSnap.forEach(d => {
+                    deletePromises.push(window.deleteDoc(window.doc(window.db, "schedule", d.id)));
+                });
+                await Promise.all(deletePromises);
+
+                // 2. 寫入新的賽程資料
+                let itemCounter = 1;
+                const savePromises = [];
+
+                appData.forEach((row) => {
+                    if (row.type !== 'divider' && row.isValidEvent) {
+                        const eventData = {
+                            itemNo: itemCounter.toString(), // 寫入項目編號
+                            time: row.time || '',
+                            trackEvent: row.track || '',
+                            fieldEvent: row.field || '',
+                            girlsGroup: row.girls || '',
+                            boysGroup: row.boys || '',
+                            heats: row.heat ? true : false, // 有 heat 字眼代表是初賽
+                            day: row.day
+                        };
+                        
+                        // 讓 Firebase 自動產生 ID，並寫入資料
+                        savePromises.push(window.setDoc(window.doc(window.collection(window.db, "schedule")), eventData));
+                        itemCounter++;
+                    }
+                });
+
+                await Promise.all(savePromises);
+                alert("✅ 賽程表已成功儲存至資料庫！\n\n現在您可以開啟「比賽紀錄表生成系統」，重新整理網頁後即可看到最新的項目編號。");
+            } catch (error) {
+                console.error("儲存失敗:", error);
+                alert("❌ 儲存失敗，請檢查網路連線或控制台錯誤訊息。");
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
         };
 
         window.exportPDF = function() {
