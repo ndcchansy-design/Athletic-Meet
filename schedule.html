@@ -180,7 +180,6 @@
             { day: 1, time: '10:40', track: '', field: '鐵餅', girls: '', boys: '男子丙組' },
             { day: 1, time: '10:50', track: '1500m', field: '', girls: '女子甲組', boys: '' },
             { day: 1, time: '11:00', track: '1500m', field: '', girls: '', boys: '男子乙組' },
-            { day: 1, time: '11:05', track: '', field: '壘球', girls: '', boys: '男子丙組' },
             { day: 1, time: '11:10', track: '1500m', field: '', girls: '', boys: '男子甲組' },
             { day: 1, type: 'divider', time: '11:30 - 13:00', text: '午 膳 時 段' },
             
@@ -270,7 +269,8 @@
             "跳遠女子乙組": 16, "壘球女子丙組": 9, "鉛球男子乙組": 12, 
             "跳高男子乙組": 9, "1500M女子乙組": 3, "鐵餅男子丙組": 9, 
             "1500M女子甲組": 11, "1500M男子乙組": 6, "壘球男子丙組": 10, 
-            "1500M男子甲組": 14, "壘球女子乙組": 12, "跳高男子甲組": 8,
+            "1500M男子甲組": 18, /* 測試用：調高至 18 人以觸發初賽機制 */
+            "壘球女子乙組": 12, "跳高男子甲組": 8,
             "跳遠女子甲組": 7, "鉛球男子甲組": 19, "200M女子丙組": 5, 
             "跳遠男子丙組": 24, "200M女子乙組": 15, "200M女子甲組": 15, 
             "200M男子丙組": 15, "鐵餅女子甲組": 10, "200M男子乙組": 15, 
@@ -279,7 +279,7 @@
             "跳高女子乙組": 3, "跳遠男子乙組": 13, "800M女子乙組": 4, 
             "鐵餅男子甲組": 17, "跳遠女子丙組": 12, "800M女子甲組": 3, 
             "800M男子丙組": 7, "鉛球女子乙組": 10, "800M男子乙組": 7, 
-            "800M男子甲組": 12,
+            "800M男子甲組": 18, /* 測試用：調高至 18 人以觸發初賽機制 */
             "100M跨欄女子丙組": 0, "100M跨欄女子乙組": 5, "100M跨欄女子甲組": 12,
             "100M跨欄男子丙組": 1, "100M跨欄男子乙組": 15, "100M跨欄男子甲組": 8
         };
@@ -345,7 +345,6 @@
                 row.heat = '';
                 row.final = '';
 
-                // 核心修改：判斷是否為接力項目
                 let isRelay = eventName.includes('接力');
 
                 if (isRelay) {
@@ -363,23 +362,43 @@
                         let isLongDistance = eventName.includes('800m') || eventName.includes('1500m');
 
                         if (isLongDistance) {
-                            row.isValidEvent = true;
-                            row.final = count;
-                        } else if (count >= 2 && count <= 8) {
-                            if (completedStraightFinals.has(format1)) {
-                                row.isValidEvent = false;
-                            } else {
+                            // 800m 及 1500m：16人或以上才分 Heat
+                            if (count >= 16) {
                                 row.isValidEvent = true;
-                                row.final = count;
-                                completedStraightFinals.add(format1);
-                            }
-                        } else if (count >= 9) {
-                            row.isValidEvent = true;
-                            if (row.day === 1) {
-                                let heatCount = Math.ceil(count / 8);
-                                row.heat = 'H' + heatCount;
+                                if (row.day === 1) {
+                                    let heatCount = Math.ceil(count / 15); // 假設長跑每組約 15 人
+                                    row.heat = 'H' + heatCount;
+                                } else {
+                                    row.final = 'F';
+                                }
                             } else {
-                                row.final = 'F';
+                                // 2 至 15 人：直入決賽
+                                if (completedStraightFinals.has(format1)) {
+                                    row.isValidEvent = false;
+                                } else {
+                                    row.isValidEvent = true;
+                                    row.final = count;
+                                    completedStraightFinals.add(format1);
+                                }
+                            }
+                        } else {
+                            // 其他徑項 (100m, 200m, 400m, 跨欄)：9人或以上分 Heat
+                            if (count >= 2 && count <= 8) {
+                                if (completedStraightFinals.has(format1)) {
+                                    row.isValidEvent = false;
+                                } else {
+                                    row.isValidEvent = true;
+                                    row.final = count;
+                                    completedStraightFinals.add(format1);
+                                }
+                            } else if (count >= 9) {
+                                row.isValidEvent = true;
+                                if (row.day === 1) {
+                                    let heatCount = Math.ceil(count / 8);
+                                    row.heat = 'H' + heatCount;
+                                } else {
+                                    row.final = 'F';
+                                }
                             }
                         }
                     }
@@ -415,7 +434,6 @@
                         </td>
                     `;
                 } else {
-                    // 如果是接力項目且沒有 Firebase 數據，顯示 "接力" 而非 "0人"
                     let cancelText = row.participantCount;
                     let displayItemNumber = row.isValidEvent ? itemCounter++ : `<span class="text-gray-300 text-xs">取消 (${cancelText}人)</span>`;
                     
