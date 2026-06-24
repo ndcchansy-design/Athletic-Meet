@@ -18,13 +18,32 @@
 
     <!-- 導覽列 -->
     <nav class="bg-blue-800 text-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-            <div class="text-xl font-bold flex items-center">
-                <i class="fas fa-running mr-2"></i>
-                <span class="hidden sm:inline">獻主會聖母院書院 - 陸運會系統</span>
-                <span class="sm:hidden">陸運會系統</span>
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-y-3">
+            <div class="flex items-center flex-wrap gap-5">
+                <div class="text-xl font-bold flex items-center">
+                    <i class="fas fa-running mr-2"></i>
+                    <span class="hidden sm:inline">獻主會聖母院書院 - 陸運會系統</span>
+                    <span class="sm:hidden">陸運會系統</span>
+                </div>
+                
+                <!-- 新增：管理員專屬的系統連結 TAGs (預設隱藏) -->
+                <div id="admin-quick-links" class="hidden flex-wrap items-center gap-2 text-sm">
+                    <a href="https://ndcchansy-design.github.io/Athletic-Meet/schedule.html" target="_blank" class="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md transition border border-blue-600 shadow-sm flex items-center">
+                        <i class="fas fa-calendar-alt mr-1.5"></i>賽程編排
+                    </a>
+                    <a href="https://ndcchansy-design.github.io/Athletic-Meet/event-sheets.html" target="_blank" class="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md transition border border-blue-600 shadow-sm flex items-center">
+                        <i class="fas fa-file-pdf mr-1.5"></i>文件生成
+                    </a>
+                    <a href="https://ndcchansy-design.github.io/Athletic-Meet/results-input.html" target="_blank" class="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md transition border border-blue-600 shadow-sm flex items-center">
+                        <i class="fas fa-keyboard mr-1.5"></i>成績輸入
+                    </a>
+                    <a href="https://ndcchansy-design.github.io/Athletic-Meet/scoreboard.html" target="_blank" class="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md transition border border-blue-600 shadow-sm flex items-center">
+                        <i class="fas fa-tv mr-1.5"></i>即時計分看板
+                    </a>
+                </div>
             </div>
-            <div id="nav-user-info" class="hidden flex items-center gap-4">
+            
+            <div id="nav-user-info" class="hidden flex items-center gap-4 ml-auto">
                 <span id="current-user-role" class="text-xs bg-white text-blue-800 px-2 py-1 rounded font-bold"></span>
                 <span id="current-user-name" class="text-sm font-medium"></span>
                 <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition shadow">登出</button>
@@ -236,7 +255,7 @@
                 </div>
             </div>
 
-            <!-- 歷屆紀錄管理 Tab (新增) -->
+            <!-- 歷屆紀錄管理 Tab -->
             <div id="tab-records" class="admin-content hidden bg-white p-6 rounded-b-lg rounded-tr-lg shadow-md">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <div>
@@ -354,7 +373,6 @@
 
     <!-- 編輯學生報名項目的彈出視窗 -->
     <div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 px-4">
-        <!-- 內容省略，與原版相同，保持版面整潔 -->
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
             <div class="bg-blue-800 text-white px-6 py-4 flex justify-between items-center shrink-0">
                 <h3 class="text-lg font-bold"><i class="fas fa-edit mr-2"></i>編輯學生報名資料</h3>
@@ -443,7 +461,7 @@
         </div>
     </div>
 
-    <!-- ⚠️ 修正 Firebase 版本為 10.12.2 -->
+    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, doc, writeBatch, collection, getDocs, getDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -474,14 +492,14 @@
 
         if(window.db) {
             loadSystemSettings();
-            fetchRecordsData(); // 載入歷屆紀錄
+            fetchRecordsData();
         }
     </script>
 
     <script>
         let globalStudentsData = [];
         let currentUser = null;
-        let globalRecordsData = {}; // 存放歷屆紀錄
+        let globalRecordsData = {}; 
         
         let systemSettings = {
             gradeCYear: 2012, gradeBYear: 2010,
@@ -499,10 +517,9 @@
         };
 
         // ==========================================
-        // 歷屆紀錄管理邏輯 (新增)
+        // 歷屆紀錄管理邏輯 
         // ==========================================
         
-        // 預設的大會紀錄 (根據您提供的圖片建立)
         const defaultRecords = {
             "男子甲組 100M": { record: "11.56s", holder: "林建東", year: "2013-2014" },
             "男子甲組 100M跨欄": { record: "14.48s", holder: "梁宝杰", year: "2009-2010" },
@@ -609,7 +626,6 @@
             } catch (e) { alert("儲存失敗：" + e.message); }
         }
 
-        // 核心：結算本屆成績並自動更新破紀錄
         async function autoUpdateRecordsFromResults() {
             if(!confirm("系統將掃描所有「決賽」成績，並自動更新被打破的大會紀錄。\n確定要執行嗎？")) return;
             
@@ -620,16 +636,14 @@
 
                 resultsSnap.forEach(docSnap => {
                     const data = docSnap.data();
-                    // 只檢查決賽成績
                     if (data.stage === '決賽' || docSnap.id.includes('_final_results')) {
-                        const eventKey = data.event; // e.g., "男子甲組 100M"
+                        const eventKey = data.event; 
                         const records = data.records.filter(r => r.status === '正常' && r.rank == "1" && r.resultStr);
                         
                         if (records.length > 0) {
                             const bestResult = records[0];
                             const isField = ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'].some(k => eventKey.includes(k));
                             
-                            // 轉換新成績為數值
                             let newVal = 0;
                             if (isField) {
                                 const match = bestResult.resultStr.match(/(\d+)\.(\d+)/);
@@ -639,7 +653,6 @@
                                 if (match) newVal = (parseInt(match[1]||0) * 60000) + (parseInt(match[2]) * 1000) + (parseInt(match[3]) * 10);
                             }
 
-                            // 取得舊紀錄
                             const oldRec = globalRecordsData[eventKey];
                             let oldVal = 0;
                             if (oldRec) {
@@ -652,14 +665,12 @@
                                 }
                             }
 
-                            // 判斷是否破紀錄 (田賽越大越好，徑賽越小越好)
                             let isBroken = false;
-                            if (!oldRec) isBroken = true; // 沒有舊紀錄直接算破
+                            if (!oldRec) isBroken = true; 
                             else if (isField && newVal > oldVal) isBroken = true;
                             else if (!isField && newVal < oldVal) isBroken = true;
 
                             if (isBroken && newVal > 0) {
-                                // 找出學生姓名
                                 const stu = globalStudentsData.find(s => s.bibNumber === bestResult.bib);
                                 const holderName = stu ? (stu.nameZh || stu.nameEn) : bestResult.bib;
                                 
@@ -690,7 +701,7 @@
         }
 
         // ==========================================
-        // 系統設定與其他邏輯 (保留原樣)
+        // 系統設定與其他邏輯 
         // ==========================================
         async function loadSystemSettings() {
             try {
@@ -799,11 +810,13 @@
                 document.getElementById('current-user-name').innerText = `${currentUser.classCode} ${currentUser.nameZh}`;
                 initStudentDashboard();
                 document.getElementById('view-student').classList.remove('hidden');
+                document.getElementById('admin-quick-links').classList.add('hidden'); // 隱藏管理員專屬 TAG
             } else {
                 currentUser = { role: 'admin', name: '管理員' };
                 document.getElementById('current-user-role').innerText = '管理員';
                 document.getElementById('current-user-name').innerText = `系統管理員`;
                 document.getElementById('view-admin').classList.remove('hidden');
+                document.getElementById('admin-quick-links').classList.remove('hidden'); // 顯示管理員專屬 TAG
                 fetchStudentsData();
             }
         }
@@ -814,6 +827,7 @@
             document.getElementById('view-student').classList.add('hidden');
             document.getElementById('view-admin').classList.add('hidden');
             document.getElementById('nav-user-info').classList.add('hidden');
+            document.getElementById('admin-quick-links').classList.add('hidden'); // 登出時隱藏 TAG
             document.getElementById('helper-select').value = "";
         }
 
