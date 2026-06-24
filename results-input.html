@@ -35,16 +35,16 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div class="col-span-2">
                     <label class="block text-sm font-bold text-gray-700 mb-2">比賽項目</label>
-                    <select id="event-select" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <!-- 加入 onchange 事件，當選擇項目改變時，自動更新組別選單 -->
+                    <select id="event-select" onchange="updateHeatDropdown()" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
                         <option value="">載入資料中...</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">組別 / 階段</label>
+                    <!-- 組別選單改為空，由 JavaScript 動態生成 -->
                     <select id="heat-select" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
-                        <option value="heat1">初賽 - 第 1 組</option>
-                        <option value="heat2">初賽 - 第 2 組</option>
-                        <option value="final">決賽</option>
+                        <option value="">-- 請先選擇項目 --</option>
                     </select>
                 </div>
                 <div>
@@ -156,7 +156,7 @@
                 globalStudentsData = [];
                 eventMap.clear();
 
-                let schoolYear = "2025-26"; // 預設
+                let schoolYear = "2025-26"; 
 
                 studentSnap.forEach((doc) => {
                     const student = doc.data();
@@ -191,7 +191,6 @@
             }
         }
 
-        // 更新版的 populateDropdown：加入備用方案與多欄位名稱支援
         function populateDropdown() {
             const select = document.getElementById('event-select');
             select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
@@ -229,7 +228,6 @@
                 });
             }
             
-            // 備用方案：如果 schedule 沒資料，或者解析後下拉選單依然是空的，就從學生的報名資料 (eventMap) 自動生成
             if (!hasSchedule || select.options.length === 1) {
                 const sortedEvents = Array.from(eventMap.keys()).sort();
                 if (sortedEvents.length === 0) {
@@ -241,39 +239,87 @@
                     select.innerHTML += `<option value="${ev}" data-matchkey="${ev}" data-itemno="" data-stage="初賽">${ev} (共 ${count} 人報名)</option>`;
                 });
             }
+
+            // 選單建立完成後，初始化一次組別選單
+            window.updateHeatDropdown();
         }
 
-        // 載入輸入表格
-        function loadInputTable() {
+        // 新增功能：根據報名人數動態計算並更新「組別」下拉選單
+        window.updateHeatDropdown = function() {
+            const eventSelect = document.getElementById('event-select');
+            const heatSelect = document.getElementById('heat-select');
+            heatSelect.innerHTML = ''; 
+
+            const selectedOption = eventSelect.options[eventSelect.selectedIndex];
+            if (!selectedOption || !selectedOption.value) {
+                heatSelect.innerHTML = '<option value="">-- 請先選擇項目 --</option>';
+                return;
+            }
+
+            const matchKey = selectedOption.getAttribute('data-matchkey');
+            const stage = selectedOption.getAttribute('data-stage'); 
+            const students = eventMap.get(matchKey) || [];
+            const totalStudents = students.length;
+
+            if (stage === '決賽' || totalStudents <= 8) {
+                // 如果是決賽，或者總人數小於等於 8 人（直接決賽）
+                heatSelect.innerHTML = `<option value="final">決賽 (共 ${totalStudents} 人)</option>`;
+            } else {
+                // 如果人數超過 8 人，計算需要分多少組 (每組最多 8 人)
+                const numHeats = Math.ceil(totalStudents / 8);
+                for (let i = 1; i <= numHeats; i++) {
+                    heatSelect.innerHTML += `<option value="${i}">初賽 - 第 ${i} 組</option>`;
+                }
+                heatSelect.innerHTML += `<option value="final">決賽</option>`;
+            }
+        };
+
+        // 載入輸入表格 (更新版：根據選擇的組別切分名單)
+        window.loadInputTable = function() {
             const select = document.getElementById('event-select');
             const option = select.options[select.selectedIndex];
-            if (!option.value) {
+            if (!option || !option.value) {
                 alert("請先選擇比賽項目！");
                 return;
             }
+
+            const heatSelect = document.getElementById('heat-select');
+            const heatVal = heatSelect.value;
+            const heatText = heatSelect.options[heatSelect.selectedIndex].text;
 
             const eventName = option.value;
             const matchKey = option.getAttribute('data-matchkey');
             currentIsFieldEvent = isFieldEvent(eventName);
 
-            document.getElementById('current-event-title').innerText = `${eventName} - ${document.getElementById('heat-select').options[document.getElementById('heat-select').selectedIndex].text}`;
+            document.getElementById('current-event-title').innerText = `${eventName} - ${heatText}`;
             document.getElementById('record-display').innerText = currentIsFieldEvent ? "大會紀錄：12.50m (模擬)" : "大會紀錄：02m 15.00s (模擬)";
             document.getElementById('input-section').classList.remove('hidden');
 
-            // 這裡模擬從資料庫抓取該組別的選手 (實務上應從 heats collection 抓取已排好線道的資料)
-            let students = eventMap.get(matchKey) || [];
-            // 為了展示，我們只取前 8 名當作一組
-            students = students.slice(0, 8); 
+            // 取得該項目的所有學生
+            let allStudents = eventMap.get(matchKey) || [];
+            let studentsToShow = [];
+
+            // 根據選擇的組別 (heatVal) 來切割陣列
+            if (heatVal === 'final') {
+                // 如果選決賽，實務上應該抓取「決賽名單資料表」，這裡暫時取前 8 名做模擬
+                studentsToShow = allStudents.slice(0, 8); 
+            } else {
+                // 如果選初賽第 1, 2, 3... 組
+                const heatNumber = parseInt(heatVal, 10);
+                const startIndex = (heatNumber - 1) * 8; // 第 1 組從 0 開始，第 2 組從 8 開始...
+                const endIndex = startIndex + 8;
+                studentsToShow = allStudents.slice(startIndex, endIndex);
+            }
 
             const tbody = document.getElementById('student-table-body');
             tbody.innerHTML = '';
 
-            if (students.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-gray-500">此項目沒有參賽者資料</td></tr>`;
+            if (studentsToShow.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-gray-500">此組別沒有參賽者資料</td></tr>`;
                 return;
             }
 
-            students.forEach((stu, index) => {
+            studentsToShow.forEach((stu, index) => {
                 const lane = index + 1;
                 const name = stu.nameZh || stu.nameEn || '';
                 const bib = stu.bibNumber || '';
@@ -310,13 +356,12 @@
             });
 
             // 顯示/隱藏產生決賽按鈕
-            const heatVal = document.getElementById('heat-select').value;
-            if(heatVal.includes('heat')) {
+            if(heatVal !== 'final') {
                 document.getElementById('btn-generate-final').classList.remove('hidden');
             } else {
                 document.getElementById('btn-generate-final').classList.add('hidden');
             }
-        }
+        };
 
         // 處理狀態變更 (ABS/DNF/DQ)
         window.handleStatusChange = function(selectElem) {
@@ -337,7 +382,7 @@
                 rankInput.disabled = true;
                 rankInput.classList.add('bg-gray-200', 'cursor-not-allowed');
 
-                remarkInput.value = status; // 自動填入備註
+                remarkInput.value = status; 
 
                 if (status === 'ABS') tr.classList.add('status-abs');
                 if (status === 'DNF') tr.classList.add('status-dnf');
@@ -353,15 +398,13 @@
 
         // 自動格式化成績輸入
         window.formatResult = function(inputElem) {
-            let val = inputElem.value.replace(/[^0-9]/g, ''); // 只保留數字
+            let val = inputElem.value.replace(/[^0-9]/g, ''); 
             if (!val) return;
 
             if (currentIsFieldEvent) {
-                // 田項：4位數 ABCD -> AB.CDm
                 val = val.padEnd(4, '0').substring(0, 4);
                 inputElem.value = `${val.substring(0,2)}.${val.substring(2,4)}m`;
             } else {
-                // 徑項：6位數 ABCDEF -> ABm CD.EFs
                 val = val.padEnd(6, '0').substring(0, 6);
                 inputElem.value = `${val.substring(0,2)}m ${val.substring(2,4)}.${val.substring(4,6)}s`;
             }
@@ -407,24 +450,16 @@
 
             if (hasError) return;
 
-            // 檢查名次重複
             const uniqueRanks = new Set(ranks);
             if (ranks.length !== uniqueRanks.size) {
                 const confirmSave = confirm("警告：偵測到重複的名次（平排）。確定要繼續儲存嗎？");
                 if (!confirmSave) return;
             }
-
-            // 模擬破紀錄檢查
-            // 實務上需將 resultVal 轉回純數字與資料庫紀錄比對
             
-            // 儲存至 Firebase (模擬)
             try {
                 const btn = document.querySelector('button[onclick="verifyAndSave()"]');
                 const originalText = btn.innerHTML;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 儲存中...';
-                
-                // 實務寫法範例：
-                // await window.setDoc(window.doc(window.db, "results", "EventID_Heat1"), { data: resultsData });
                 
                 setTimeout(() => {
                     btn.innerHTML = '<i class="fas fa-check mr-2"></i> 儲存成功';
@@ -444,7 +479,6 @@
         window.generateFinalists = function() {
             alert("系統將會讀取所有初賽組別的成績，自動排序並挑選前 8 名進入決賽。\n(此功能需配合 Firebase 儲存所有初賽成績後方可執行)");
             document.getElementById('heat-select').value = 'final';
-            // 實務上這裡會重新 loadInputTable()，並帶入篩選出的 8 位決賽選手
         };
 
     </script>
