@@ -38,7 +38,10 @@
 
     <nav class="bg-blue-800 text-white shadow-lg no-print sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-            <div class="text-xl font-bold flex items-center"><i class="fas fa-file-signature mr-2"></i><span>比賽文件生成系統</span></div>
+            <div class="text-xl font-bold flex items-center">
+                <i class="fas fa-file-signature mr-2"></i>
+                <span>比賽文件生成系統 <span class="text-sm bg-blue-900 px-2 py-1 rounded ml-2">已連動編排資料庫</span></span>
+            </div>
             <button onclick="exportPDF()" id="export-btn" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm font-bold transition shadow flex items-center hidden"><i class="fas fa-file-pdf mr-2"></i> 匯出 A4 PDF</button>
         </div>
     </nav>
@@ -104,17 +107,14 @@
         const isFieldEvent = (eventName) => ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'].some(k => eventName.includes(k));
         const isLongDistance = (eventName) => eventName.toUpperCase().includes('800M') || eventName.toUpperCase().includes('1500M');
 
-        // 增強版的大會紀錄搜尋功能
         const findRecord = (eventName, matchKey) => {
             if (!globalRecordsData) return null;
             const norm = normalizeString(eventName);
             
-            // 1. 完全比對
             if (globalRecordsData[eventName]) return globalRecordsData[eventName];
             if (globalRecordsData[norm]) return globalRecordsData[norm];
             if (matchKey && globalRecordsData[matchKey]) return globalRecordsData[matchKey];
             
-            // 2. 嘗試拆分組別與項目並反轉 (例如：男子甲組 400M -> 400M男子甲組)
             let group = "", item = "";
             const parts = eventName.split(' ');
             if (parts.length >= 2) {
@@ -134,13 +134,11 @@
             
             if (globalRecordsData[swapped1]) return globalRecordsData[swapped1];
             
-            // 3. 遍歷資料庫所有 key 進行模糊比對
             for (const key in globalRecordsData) {
                 const normKey = normalizeString(key);
                 if (normKey === norm || normKey === swapped1) {
                     return globalRecordsData[key];
                 }
-                // 如果 key 同時包含組別與項目名稱，且沒有多餘字元 (避免 100M 配對到 1500M)
                 if (normGroup && normItem && normKey.includes(normGroup) && normKey.includes(normItem)) {
                     const remainder = normKey.replace(normGroup, '').replace(normItem, '');
                     if (remainder === '') {
@@ -241,7 +239,6 @@
             const stage = document.getElementById('stage-select').value;
             const eventTime = selectedOption.getAttribute('data-time') || '__:__';
 
-            // 使用增強版搜尋功能找大會紀錄
             const eventRecord = findRecord(eventName, matchKey);
 
             document.getElementById('preview-container').classList.add('hidden');
@@ -252,58 +249,104 @@
             let students = [...(eventMap.get(matchKey) || [])].sort((a, b) => (a.bibNumber || '').localeCompare(b.bibNumber || ''));
             const isField = isFieldEvent(eventName);
             const isLongDist = isLongDistance(eventName);
+            
             let heats = []; 
+            let hasStartList = false;
 
-            if (stage === "決賽" && !isField && !isLongDist) {
+            // ================= 核心修改 1：優先讀取 start_lists =================
+            try {
+                const startListSnap = await getDoc(doc(db, "start_lists", `${matchKey}_${stage}`));
+                if (startListSnap.exists()) {
+                    const savedHeats = startListSnap.data().heats;
+                    savedHeats.forEach((heatData, index) => {
+                        let heatName = '';
+                        if (savedHeats.length > 1) {
+                            heatName = `第 ${index + 1} 組`;
+                        } else if (stage === '決賽' && !isField) {
+                            heatName = '決賽';
+                        }
+                        heats.push({ heatName: heatName, data: heatData });
+                    });
+                    hasStartList = true;
+                    console.log("✅ 成功載入自訂編排名單");
+                }
+            } catch (e) {
+                console.error("讀取 start_lists 失敗", e);
+            }
+
+            // 如果是決賽且讀取了 start_lists，嘗試把晉級成績 (qualifyingTime) 補上去
+            if (hasStartList && stage === '決賽' && !isField && !isLongDist) {
                 try {
-                    const docSnap = await getDoc(doc(db, "results", `${matchKey}_final`));
-                    let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
-                    
-                    if (docSnap.exists()) {
-                        const finalRecords = docSnap.data().records;
-                        finalRecords.forEach(rec => {
-                            const stu = globalStudentsData.find(s => s.bibNumber === rec.bib);
-                            if(stu) {
-                                const laneIndex = heatData.findIndex(d => d.assignedLane === parseInt(rec.lane));
-                                if(laneIndex !== -1) heatData[laneIndex] = { ...stu, assignedLane: parseInt(rec.lane), isEmpty: false, qualifyingTime: rec.qualifyingTime };
-                            }
+                    const finalSnap = await getDoc(doc(db, "results", `${matchKey}_final`));
+                    if (finalSnap.exists()) {
+                        const finalRecords = finalSnap.data().records;
+                        heats.forEach(heat => {
+                            heat.data.forEach(stu => {
+                                if (!stu.isEmpty && stu.bibNumber) {
+                                    const rec = finalRecords.find(r => r.bib === stu.bibNumber);
+                                    if (rec && rec.qualifyingTime) stu.qualifyingTime = rec.qualifyingTime;
+                                }
+                            });
                         });
                     }
-                    heats.push({ heatName: '決賽', data: heatData });
-                } catch(e) { console.error("無法讀取決賽名單", e); }
-            } else if (isField) {
-                heats.push({ heatName: '', data: students });
-            } else if (isLongDist) {
-                let numHeats = (students.length >= 17 && stage !== "決賽") ? Math.ceil(students.length / 15) : 1;
-                const baseSize = Math.floor(students.length / numHeats);
-                let remainder = students.length % numHeats;
-                let studentIndex = 0;
-                for (let i = 0; i < numHeats; i++) {
-                    let heatSize = baseSize + (remainder > 0 ? 1 : 0); remainder--;
-                    let heatStudents = students.slice(studentIndex, studentIndex + heatSize); studentIndex += heatSize;
-                    heats.push({ heatName: numHeats > 1 ? `第 ${i + 1} 組` : '', data: heatStudents.map((stu, idx) => ({ ...stu, assignedLane: idx + 1, isEmpty: false })) });
-                }
-            } else {
-                let isDirectFinal = stage === "決賽" && students.length > 0 && students.length <= 8;
-                if (students.length > 0 && (stage !== "決賽" || isDirectFinal)) {
-                    const numHeats = Math.ceil(students.length / 8); 
-                    const baseSize = Math.floor(students.length / numHeats); 
-                    let remainder = students.length % numHeats; 
+                } catch(e) {}
+            }
+            // =====================================================================
+
+            // ================= 核心修改 2：如果沒有自訂名單，使用原本的動態生成 =================
+            if (!hasStartList) {
+                if (stage === "決賽" && !isField && !isLongDist) {
+                    try {
+                        const docSnap = await getDoc(doc(db, "results", `${matchKey}_final`));
+                        let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
+                        
+                        if (docSnap.exists()) {
+                            const finalRecords = docSnap.data().records;
+                            finalRecords.forEach(rec => {
+                                const stu = globalStudentsData.find(s => s.bibNumber === rec.bib);
+                                if(stu) {
+                                    const laneIndex = heatData.findIndex(d => d.assignedLane === parseInt(rec.lane));
+                                    if(laneIndex !== -1) heatData[laneIndex] = { ...stu, assignedLane: parseInt(rec.lane), isEmpty: false, qualifyingTime: rec.qualifyingTime };
+                                }
+                            });
+                        }
+                        heats.push({ heatName: '決賽', data: heatData });
+                    } catch(e) { console.error("無法讀取決賽名單", e); }
+                } else if (isField) {
+                    heats.push({ heatName: '', data: students });
+                } else if (isLongDist) {
+                    let numHeats = (students.length >= 17 && stage !== "決賽") ? Math.ceil(students.length / 15) : 1;
+                    const baseSize = Math.floor(students.length / numHeats);
+                    let remainder = students.length % numHeats;
                     let studentIndex = 0;
                     for (let i = 0; i < numHeats; i++) {
                         let heatSize = baseSize + (remainder > 0 ? 1 : 0); remainder--;
                         let heatStudents = students.slice(studentIndex, studentIndex + heatSize); studentIndex += heatSize;
-                        const laneOrder = [3, 4, 5, 6, 2, 7, 1, 8];
-                        let assignedLanes = laneOrder.slice(0, heatSize).sort((a, b) => a - b);
-                        let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
-                        heatStudents.forEach((stu, idx) => {
-                            const laneIndex = heatData.findIndex(d => d.assignedLane === assignedLanes[idx]);
-                            if (laneIndex !== -1) heatData[laneIndex] = { ...stu, assignedLane: assignedLanes[idx], isEmpty: false };
-                        });
-                        heats.push({ heatName: numHeats > 1 ? `第 ${i + 1} 組` : '', data: heatData });
+                        heats.push({ heatName: numHeats > 1 ? `第 ${i + 1} 組` : '', data: heatStudents.map((stu, idx) => ({ ...stu, assignedLane: idx + 1, isEmpty: false })) });
+                    }
+                } else {
+                    let isDirectFinal = stage === "決賽" && students.length > 0 && students.length <= 8;
+                    if (students.length > 0 && (stage !== "決賽" || isDirectFinal)) {
+                        const numHeats = Math.ceil(students.length / 8); 
+                        const baseSize = Math.floor(students.length / numHeats); 
+                        let remainder = students.length % numHeats; 
+                        let studentIndex = 0;
+                        for (let i = 0; i < numHeats; i++) {
+                            let heatSize = baseSize + (remainder > 0 ? 1 : 0); remainder--;
+                            let heatStudents = students.slice(studentIndex, studentIndex + heatSize); studentIndex += heatSize;
+                            const laneOrder = [3, 4, 5, 6, 2, 7, 1, 8];
+                            let assignedLanes = laneOrder.slice(0, heatSize).sort((a, b) => a - b);
+                            let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
+                            heatStudents.forEach((stu, idx) => {
+                                const laneIndex = heatData.findIndex(d => d.assignedLane === assignedLanes[idx]);
+                                if (laneIndex !== -1) heatData[laneIndex] = { ...stu, assignedLane: assignedLanes[idx], isEmpty: false };
+                            });
+                            heats.push({ heatName: numHeats > 1 ? `第 ${i + 1} 組` : '', data: heatData });
+                        }
                     }
                 }
             }
+            // =====================================================================
             
             const copies = [
                 { role: "召集處", subtitle: "檢錄及點名用" },
