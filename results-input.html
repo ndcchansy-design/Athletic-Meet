@@ -164,7 +164,6 @@
         let currentEventKey = "";
         let currentEventNo = "";
         
-        // 新增：追蹤是否處於編排模式
         window.isEditMode = false;
 
         const normalizeString = (str) => str ? str.replace(/\s+/g, '').toUpperCase().replace('擲壘球', '壘球').replace('擲標槍', '標槍').replace('擲鐵餅', '鐵餅').replace('推鉛球', '鉛球').replace('推銘球', '鉛球') : '';
@@ -228,14 +227,27 @@
                 scheduleData.sort((a, b) => (parseInt(a['項目'] || a.itemNo || a.id) || 0) - (parseInt(b['項目'] || b.itemNo || b.id) || 0));
                 scheduleData.forEach(item => {
                     const itemNo = item['項目'] || item.itemNo || item.id || '';
-                    const group = item['女子組'] || item['男子組'] || item.girlsGroup || item.boysGroup || '';
-                    const event = item['徑項'] || item['田項'] || item.trackEvent || item.fieldEvent || '';
-                    if(group && event) {
-                        const fullEventName = `${group} ${event}`.trim();
+                    
+                    // 修正 1：擴充讀取欄位，確保接力賽（可能只有「組別」和「項目名稱」）也能被正確讀取
+                    const group = item['組別'] || item['女子組'] || item['男子組'] || item.group || item.girlsGroup || item.boysGroup || '';
+                    const event = item['比賽項目'] || item['項目名稱'] || item['徑項'] || item['田項'] || item.event || item.trackEvent || item.fieldEvent || '';
+                    
+                    let fullEventName = item['名稱'] || item.eventName || item.name || '';
+                    if (!fullEventName) {
+                        if (group && event) fullEventName = `${group} ${event}`.trim();
+                        else if (event) fullEventName = event.trim();
+                        else if (group) fullEventName = group.trim();
+                    }
+
+                    if(fullEventName) {
                         const format1 = normalizeString(`${event}${group}`);
                         const format2 = normalizeString(`${group}${event}`);
-                        let matchKey = format1;
+                        const format3 = normalizeString(fullEventName);
+                        
+                        let matchKey = format3; // 預設使用完整名稱
                         if (eventMap.has(format2)) matchKey = format2;
+                        else if (eventMap.has(format1)) matchKey = format1;
+
                         select.innerHTML += `<option value="${matchKey}" data-itemno="${itemNo}" data-fullname="${fullEventName}">【${itemNo || '未編號'}】 ${fullEventName}</option>`;
                         hasOptions = true;
                     }
@@ -255,7 +267,7 @@
             select.addEventListener('change', function() {
                 currentEventKey = this.value;
                 currentEventNo = this.options[this.selectedIndex].getAttribute('data-itemno');
-                window.isEditMode = false; // 切換項目時退出編排模式
+                window.isEditMode = false; 
                 toggleEditMode(false);
                 generateHeats();
             });
@@ -284,17 +296,15 @@
                 generateFinalsBtn.style.display = 'flex';
             }
 
-            // 核心修改 1：優先從 Firebase 讀取儲存好的 start_lists (出賽名單)
             try {
                 const startListSnap = await getDoc(doc(db, "start_lists", `${currentEventKey}_${stage}`));
                 if (startListSnap.exists()) {
                     currentHeatsData = startListSnap.data().heats;
                     finalizeGenerateHeats(stage);
-                    return; // 如果資料庫有儲存的名單，就直接使用並結束函數
+                    return; 
                 }
             } catch(e) { console.error("讀取 start_lists 失敗", e); }
 
-            // 核心修改 2：如果資料庫沒有儲存的名單，才使用原本的動態計算邏輯
             if (isField) {
                 let students = [...(eventMap.get(currentEventKey) || [])].sort((a, b) => (a.bibNumber || '').localeCompare(b.bibNumber || ''));
                 let heatData = students.map((stu, idx) => ({ ...stu, assignedLane: idx + 1, isEmpty: false }));
@@ -319,9 +329,12 @@
                             });
                             currentHeatsData.push(heatData);
                         }
+                    } else {
+                        // 修正 2：如果沒有學生報名（例如接力賽），預設產生一組空的線道，讓使用者可以在編排模式中新增
+                        let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
+                        currentHeatsData.push(heatData);
                     }
                 } else {
-                    // 決賽動態生成 (備用邏輯)
                     try {
                         const docSnap = await getDoc(doc(db, "results", `${currentEventKey}_final`));
                         let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
@@ -356,7 +369,6 @@
             }
         }
 
-        // ================= 新增：編排模式相關函數 =================
         window.toggleEditMode = function(mode) {
             if (!currentEventKey && mode) return alert("請先選擇比賽項目！");
             window.isEditMode = mode;
@@ -391,7 +403,7 @@
                     bibNumber: bib,
                     nameZh: name,
                     classCode: cls,
-                    isEmpty: (!bib && !name) // 如果沒打字視為空線道
+                    isEmpty: (!bib && !name) 
                 });
             });
             currentHeatsData[heatIndex] = updatedHeat;
@@ -402,7 +414,7 @@
             const stage = document.getElementById('stage-select').value;
             if (isNaN(heatIndex)) return;
             
-            syncEditDataToState(heatIndex); // 先同步畫面上打到一半的字
+            syncEditDataToState(heatIndex); 
             
             let nextLane = currentHeatsData[heatIndex].length + 1;
             currentHeatsData[heatIndex].push({
@@ -426,10 +438,9 @@
             const stage = document.getElementById('stage-select').value;
             if (isNaN(heatIndex)) return;
 
-            syncEditDataToState(heatIndex); // 獲取畫面上最新的輸入
+            syncEditDataToState(heatIndex); 
 
             try {
-                // 將整份 currentHeatsData 存入 Firebase
                 await setDoc(doc(db, "start_lists", `${currentEventKey}_${stage}`), {
                     event: currentEventKey,
                     stage: stage,
@@ -437,13 +448,12 @@
                     updatedAt: new Date().toISOString()
                 });
                 alert("✅ 出賽名單編排已儲存！\n比賽文件生成系統現在可以讀取這份最新名單了。");
-                window.toggleEditMode(false); // 儲存後自動退出編排模式
+                window.toggleEditMode(false); 
             } catch(e) {
                 console.error(e);
                 alert("儲存失敗！請檢查網路連線。");
             }
         }
-        // ==========================================================
 
         async function renderTable(heatIndex, stage) {
             const tbody = document.getElementById('input-tbody');
@@ -466,7 +476,6 @@
             let html = '';
 
             if (window.isEditMode) {
-                // --- 編排模式 UI ---
                 thead.innerHTML = `
                     <th class="py-3 px-4 w-24 text-center">次序/線道</th>
                     <th class="py-3 px-4 w-32">號碼布/隊名</th>
@@ -488,7 +497,6 @@
                     `;
                 });
             } else {
-                // --- 正常輸入成績 UI ---
                 thead.innerHTML = `
                     <th class="py-3 px-4 w-20 text-center">次序/線道</th>
                     <th class="py-3 px-4 w-24">號碼布</th>
@@ -525,7 +533,6 @@
             }
             tbody.innerHTML = html;
 
-            // 載入已儲存的成績 (僅在非編排模式下)
             if (!window.isEditMode) {
                 try {
                     const docId = stage === '初賽' ? `${currentEventKey}_heat${heatIndex}` : `${currentEventKey}_final_results`;
@@ -720,12 +727,10 @@
                     lane: laneOrder[index], bib: rec.bib, qualifyingTime: rec.resultStr
                 }));
 
-                // 儲存決賽結果參照
                 await setDoc(doc(db, "results", `${currentEventKey}_final`), {
                     event: currentEventKey, stage: '決賽名單', updatedAt: new Date().toISOString(), records: finalRecords
                 });
 
-                // 核心修改 3：同步將決賽名單寫入 start_lists，讓文件生成系統能印出來
                 let finalStartList = top8.map((rec, index) => {
                     let stu = globalStudentsData.find(s=>s.bibNumber===rec.bib) || {};
                     return {
