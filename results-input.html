@@ -11,8 +11,6 @@
         .empty-lane { background-color: #f1f5f9; color: #94a3b8; }
         .active-lane { background-color: #ffffff; }
         input:disabled, select:disabled { background-color: #f1f5f9; cursor: not-allowed; }
-        
-        /* 列印最終成績單專用樣式 */
         @media print {
             body * { visibility: hidden; }
             #print-report-container, #print-report-container * { visibility: visible; }
@@ -30,14 +28,13 @@
             <div class="text-xl font-bold flex items-center">
                 <i class="fas fa-stopwatch mr-2"></i><span>成績輸入系統</span>
             </div>
-            <div id="status-indicator" class="text-sm font-bold px-3 py-1 rounded bg-red-900">
+            <div id="status-indicator" class="text-sm font-bold px-3 py-1 rounded bg-yellow-600">
                 <i class="fas fa-circle-notch fa-spin mr-1"></i> 連線中...
             </div>
         </div>
     </nav>
 
     <div class="max-w-7xl mx-auto px-4 py-6 no-print">
-        <!-- 控制面板 -->
         <div class="bg-white p-5 rounded-lg shadow-md border-t-4 border-red-800 mb-6">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="col-span-2">
@@ -73,7 +70,6 @@
             </div>
         </div>
 
-        <!-- 成績輸入表格 -->
         <div class="bg-white rounded-lg shadow-md overflow-hidden">
             <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                 <h2 id="table-title" class="text-xl font-bold text-gray-800">請選擇比賽項目與組別</h2>
@@ -100,7 +96,6 @@
         </div>
     </div>
 
-    <!-- 最終成績單列印區 (預設隱藏) -->
     <div id="print-report-container" class="hidden max-w-5xl mx-auto p-10 bg-white min-h-screen">
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold mb-2">Notre Dame College</h1>
@@ -108,33 +103,15 @@
             <h3 class="text-xl italic mb-6">決賽日項目優勝者</h3>
             
             <div class="flex justify-between text-left text-lg font-bold border-b-2 border-black pb-2">
-                <div>
-                    <p>場號：<span id="report-item-no" class="ml-2 font-normal">--</span></p>
-                    <p>第幾組：<span class="ml-2 font-normal">全部</span></p>
-                </div>
-                <div class="text-center">
-                    <p>項目簡稱：<span id="report-event-short" class="ml-2 font-normal">--</span></p>
-                    <p>項目名稱：<span id="report-event-name" class="ml-2 font-normal">--</span></p>
-                </div>
-                <div class="text-right">
-                    <p>組別：<span id="report-group" class="ml-2 font-normal">--</span></p>
-                    <p>性別：<span id="report-gender" class="ml-2 font-normal">--</span></p>
-                </div>
+                <div><p>場號：<span id="report-item-no" class="ml-2 font-normal">--</span></p><p>第幾組：<span class="ml-2 font-normal">全部</span></p></div>
+                <div class="text-center"><p>項目簡稱：<span id="report-event-short" class="ml-2 font-normal">--</span></p><p>項目名稱：<span id="report-event-name" class="ml-2 font-normal">--</span></p></div>
+                <div class="text-right"><p>組別：<span id="report-group" class="ml-2 font-normal">--</span></p><p>性別：<span id="report-gender" class="ml-2 font-normal">--</span></p></div>
             </div>
         </div>
         <table class="w-full report-table text-sm border-collapse border border-black">
             <thead>
                 <tr>
-                    <th width="6%">名次</th>
-                    <th width="12%">班別/班號</th>
-                    <th width="18%">參加學生姓名</th>
-                    <th width="8%">號碼布</th>
-                    <th width="8%">學社</th>
-                    <th width="15%">成績及紀錄</th>
-                    <th width="10%">標準/紀錄/<br>參與獎分</th>
-                    <th width="8%">名次分</th>
-                    <th width="8%">缺席扣分</th>
-                    <th width="7%">總分</th>
+                    <th width="6%">名次</th><th width="12%">班別/班號</th><th width="18%">參加學生姓名</th><th width="8%">號碼布</th><th width="8%">學社</th><th width="15%">成績及紀錄</th><th width="10%">標準/紀錄/<br>參與獎分</th><th width="8%">名次分</th><th width="8%">缺席扣分</th><th width="7%">總分</th>
                 </tr>
             </thead>
             <tbody id="report-tbody"></tbody>
@@ -145,22 +122,25 @@
         </div>
     </div>
 
+    <!-- 將所有邏輯整合在同一個 module 中，避免執行順序問題 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = { apiKey: "AIzaSyB6N110dVd8_T9tygXEApjTPsQC5HsF0IQ", authDomain: "athletic-meet-85936.firebaseapp.com", projectId: "athletic-meet-85936" };
-        let app, db;
+        
+        let db;
         try {
-            app = initializeApp(firebaseConfig); db = getFirestore(app);
-            window.db = db; window.getDocs = getDocs; window.collection = collection; window.doc = doc; window.setDoc = setDoc; window.getDoc = getDoc;
+            const app = initializeApp(firebaseConfig); 
+            db = getFirestore(app);
             document.getElementById('status-indicator').innerHTML = '<i class="fas fa-check-circle mr-1"></i> 已連線';
             document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1 rounded bg-green-600';
-            fetchAllData(); 
-        } catch (error) { console.error(error); }
-    </script>
+        } catch (error) { 
+            console.error("Firebase 初始化失敗", error); 
+            document.getElementById('status-indicator').innerHTML = '<i class="fas fa-times-circle mr-1"></i> 連線失敗';
+            document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1 rounded bg-red-600';
+        }
 
-    <script>
         let globalStudentsData = [];
         let eventMap = new Map();
         let scheduleData = [];
@@ -169,25 +149,35 @@
         let currentEventNo = "";
 
         const normalizeString = (str) => str ? str.replace(/\s+/g, '').toUpperCase().replace('擲壘球', '壘球').replace('擲標槍', '標槍').replace('擲鐵餅', '鐵餅').replace('推鉛球', '鉛球').replace('推銘球', '鉛球') : '';
+        const isFieldEvent = (eventName) => ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'].some(k => eventName.includes(k));
 
         async function fetchAllData() {
-            const studentSnap = await window.getDocs(window.collection(window.db, "students"));
-            studentSnap.forEach((doc) => {
-                const student = doc.data();
-                globalStudentsData.push(student);
-                if (student.registeredEvents) {
-                    student.registeredEvents.forEach(ev => {
-                        const normalizedEv = normalizeString(ev);
-                        if (!eventMap.has(normalizedEv)) eventMap.set(normalizedEv, []);
-                        eventMap.get(normalizedEv).push(student);
-                    });
-                }
-            });
+            if (!db) return;
+            try {
+                const studentSnap = await getDocs(collection(db, "students"));
+                studentSnap.forEach((doc) => {
+                    const student = doc.data();
+                    globalStudentsData.push(student);
+                    if (student.registeredEvents) {
+                        student.registeredEvents.forEach(ev => {
+                            const normalizedEv = normalizeString(ev);
+                            if (!eventMap.has(normalizedEv)) eventMap.set(normalizedEv, []);
+                            eventMap.get(normalizedEv).push(student);
+                        });
+                    }
+                });
+            } catch (e) {
+                console.error("讀取學生資料失敗", e);
+                document.getElementById('event-select').innerHTML = '<option value="">讀取資料失敗，請檢查權限</option>';
+                return;
+            }
 
             try {
-                const scheduleSnap = await window.getDocs(window.collection(window.db, "schedule"));
+                const scheduleSnap = await getDocs(collection(db, "schedule"));
                 scheduleSnap.forEach(doc => scheduleData.push({ id: doc.id, ...doc.data() }));
-            } catch(e) {}
+            } catch(e) {
+                console.warn("未能讀取 schedule 資料庫，將使用備用模式。");
+            }
 
             populateEventDropdown();
         }
@@ -196,18 +186,42 @@
             const select = document.getElementById('event-select');
             select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
             
-            scheduleData.sort((a, b) => (parseInt(a['項目'] || a.itemNo) || 0) - (parseInt(b['項目'] || b.itemNo) || 0));
-            
-            scheduleData.forEach(item => {
-                const itemNo = item['項目'] || item.itemNo || '';
-                const group = item['女子組'] || item['男子組'] || '';
-                const event = item['徑項'] || item['田項'] || '';
-                if(group && event && !event.includes('跳') && !event.includes('擲') && !event.includes('推')) {
-                    const fullEventName = `${group} ${event}`.trim();
-                    const matchKey = normalizeString(`${group}${event}`);
-                    select.innerHTML += `<option value="${matchKey}" data-itemno="${itemNo}" data-fullname="${fullEventName}">【${itemNo}】 ${fullEventName}</option>`;
+            let hasOptions = false;
+
+            if (scheduleData.length > 0) {
+                scheduleData.sort((a, b) => (parseInt(a['項目'] || a.itemNo || a.id) || 0) - (parseInt(b['項目'] || b.itemNo || b.id) || 0));
+                
+                scheduleData.forEach(item => {
+                    const itemNo = item['項目'] || item.itemNo || item.id || '';
+                    const group = item['女子組'] || item['男子組'] || item.girlsGroup || item.boysGroup || '';
+                    const event = item['徑項'] || item['田項'] || item.trackEvent || item.fieldEvent || '';
+                    
+                    if(group && event && !isFieldEvent(event)) {
+                        const fullEventName = `${group} ${event}`.trim();
+                        const format1 = normalizeString(`${event}${group}`);
+                        const format2 = normalizeString(`${group}${event}`);
+                        let matchKey = format1;
+                        if (eventMap.has(format2)) matchKey = format2;
+
+                        select.innerHTML += `<option value="${matchKey}" data-itemno="${itemNo}" data-fullname="${fullEventName}">【${itemNo || '未編號'}】 ${fullEventName}</option>`;
+                        hasOptions = true;
+                    }
+                });
+            }
+
+            // 備用模式：如果賽程表沒有資料或不匹配，直接從報名資料抓取
+            if (!hasOptions) {
+                const sortedEvents = Array.from(eventMap.keys()).sort();
+                if (sortedEvents.length === 0) {
+                    select.innerHTML = '<option value="">資料庫中目前沒有報名資料</option>';
+                    return;
                 }
-            });
+                sortedEvents.forEach(ev => {
+                    if (!isFieldEvent(ev)) {
+                        select.innerHTML += `<option value="${ev}" data-itemno="" data-fullname="${ev}">${ev}</option>`;
+                    }
+                });
+            }
 
             select.addEventListener('change', function() {
                 currentEventKey = this.value;
@@ -245,9 +259,8 @@
                     }
                 }
             } else {
-                // 決賽：從 Firebase 讀取已產生的決賽名單
                 try {
-                    const docSnap = await window.getDoc(window.doc(window.db, "results", `${currentEventKey}_final`));
+                    const docSnap = await getDoc(doc(db, "results", `${currentEventKey}_final`));
                     let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
                     if (docSnap.exists()) {
                         const finalRecords = docSnap.data().records;
@@ -283,7 +296,7 @@
                     html += `<tr class="border-b empty-lane"><td class="py-2 px-4 text-center font-bold text-xl">${stu.assignedLane}</td><td colspan="7" class="py-2 px-4 text-center">-- 空線道 --</td></tr>`;
                 } else {
                     const name = stu.nameZh || stu.nameEn || '';
-                    const cls = stu.classCode ? `${stu.classCode}(${stu.classNo})` : '';
+                    const cls = stu.classCode ? `${stu.classCode}(${stu.classNo||''})` : '';
                     html += `
                         <tr id="row-${stu.assignedLane}" class="border-b active-lane hover:bg-blue-50" data-bib="${stu.bibNumber}">
                             <td class="py-3 px-4 text-center font-bold text-xl">${stu.assignedLane}</td>
@@ -300,10 +313,9 @@
             });
             tbody.innerHTML = html;
 
-            // 讀取已儲存成績
             try {
                 const docId = stage === '初賽' ? `${currentEventKey}_heat${heatIndex}` : `${currentEventKey}_final_results`;
-                const docSnap = await window.getDoc(window.doc(window.db, "results", docId));
+                const docSnap = await getDoc(doc(db, "results", docId));
                 if (docSnap.exists()) {
                     docSnap.data().records.forEach(record => {
                         const row = document.querySelector(`tr[data-bib="${record.bib}"]`);
@@ -312,7 +324,7 @@
                             row.querySelector('.result-input').value = record.resultStr || '';
                             row.querySelector('.rank-input').value = record.rank || '';
                             row.querySelector('.remark-input').value = record.remark || '';
-                            handleStatusChange(row.querySelector('.status-select'), record.lane);
+                            window.handleStatusChange(row.querySelector('.status-select'), record.lane);
                         }
                     });
                 }
@@ -363,26 +375,27 @@
             }
 
             const docId = stage === '初賽' ? `${currentEventKey}_heat${heatIndex}` : `${currentEventKey}_final_results`;
-            await window.setDoc(window.doc(window.db, "results", docId), {
-                event: currentEventKey, stage: stage, heat: parseInt(heatIndex), updatedAt: new Date().toISOString(), records: recordsToSave
-            });
-            alert("✅ 成績儲存成功！");
+            try {
+                await setDoc(doc(db, "results", docId), {
+                    event: currentEventKey, stage: stage, heat: parseInt(heatIndex), updatedAt: new Date().toISOString(), records: recordsToSave
+                });
+                alert("✅ 成績儲存成功！");
+            } catch (e) {
+                console.error(e);
+                alert("儲存失敗！");
+            }
         }
 
-        // ==========================================
-        // 新功能 1：結算初賽並產生決賽名單
-        // ==========================================
         window.generateFinals = async function() {
             if(!currentEventKey) return alert("請先選擇比賽項目！");
             if(!confirm("確定要結算所有初賽成績，並產生前 8 名的決賽名單嗎？\n(這將覆蓋舊的決賽名單)")) return;
 
             try {
-                // 抓取該項目的所有初賽成績
-                const resultsSnap = await window.getDocs(window.collection(window.db, "results"));
+                const resultsSnap = await getDocs(collection(db, "results"));
                 let allValidRecords = [];
                 
-                resultsSnap.forEach(doc => {
-                    const data = doc.data();
+                resultsSnap.forEach(docSnap => {
+                    const data = docSnap.data();
                     if(data.event === currentEventKey && data.stage === '初賽') {
                         data.records.forEach(rec => {
                             if(rec.status === '正常' && rec.resultStr) {
@@ -398,11 +411,9 @@
 
                 if(allValidRecords.length === 0) return alert("找不到任何有效的初賽成績！");
 
-                // 按時間排序，取前 8 名
                 allValidRecords.sort((a, b) => a.timeMs - b.timeMs);
                 const top8 = allValidRecords.slice(0, 8);
 
-                // 分配決賽線道 (短跑標準：4, 5, 3, 6, 2, 7, 1, 8)
                 const laneOrder = [4, 5, 3, 6, 2, 7, 1, 8];
                 let finalRecords = top8.map((rec, index) => ({
                     lane: laneOrder[index],
@@ -410,12 +421,8 @@
                     qualifyingTime: rec.resultStr
                 }));
 
-                // 儲存為決賽名單
-                await window.setDoc(window.doc(window.db, "results", `${currentEventKey}_final`), {
-                    event: currentEventKey,
-                    stage: '決賽名單',
-                    updatedAt: new Date().toISOString(),
-                    records: finalRecords
+                await setDoc(doc(db, "results", `${currentEventKey}_final`), {
+                    event: currentEventKey, stage: '決賽名單', updatedAt: new Date().toISOString(), records: finalRecords
                 });
 
                 alert("✅ 決賽名單產生成功！請將「比賽階段」切換至「決賽」查看。");
@@ -428,15 +435,11 @@
             }
         }
 
-        // ==========================================
-        // 新功能 2：列印最終成績單 (仿照相片格式)
-        // ==========================================
         window.showFinalReport = async function() {
             if(!currentEventKey) return alert("請先選擇比賽項目！");
 
             try {
-                // 讀取決賽成績
-                const docSnap = await window.getDoc(window.doc(window.db, "results", `${currentEventKey}_final_results`));
+                const docSnap = await getDoc(doc(db, "results", `${currentEventKey}_final_results`));
                 if (!docSnap.exists()) return alert("尚未輸入決賽成績！");
 
                 const records = docSnap.data().records.filter(r => r.rank && r.status === '正常');
@@ -454,31 +457,22 @@
                 const tbody = document.getElementById('report-tbody');
                 tbody.innerHTML = '';
 
-                // 名次給分標準
                 const pointsMap = { 1: 9.0, 2: 7.0, 3: 6.0, 4: 5.0, 5: 4.0, 6: 3.0, 7: 2.0, 8: 1.0 };
 
                 records.forEach(rec => {
                     const stu = globalStudentsData.find(s => s.bibNumber === rec.bib) || {};
                     const name = stu.nameZh || stu.nameEn || '';
-                    const cls = stu.classCode ? `${stu.classCode} ${stu.classNo}` : '';
-                    const house = stu.house || ''; // 學社
+                    const cls = stu.classCode ? `${stu.classCode} ${stu.classNo||''}` : '';
+                    const house = stu.house || ''; 
                     
                     const rankPoint = pointsMap[parseInt(rec.rank)] || 0.0;
-                    const partPoint = 1.0; // 參與分預設 1 分
+                    const partPoint = 1.0; 
                     const totalPoint = rankPoint + partPoint;
 
                     tbody.innerHTML += `
                         <tr>
-                            <td>${rec.rank}</td>
-                            <td>${cls}</td>
-                            <td class="text-left px-2">${name}</td>
-                            <td>${rec.bib}</td>
-                            <td>${house}</td>
-                            <td class="font-bold">${rec.resultStr}</td>
-                            <td>${partPoint.toFixed(1)}</td>
-                            <td>${rankPoint.toFixed(1)}</td>
-                            <td>0.0</td>
-                            <td class="font-bold">${totalPoint.toFixed(1)}</td>
+                            <td>${rec.rank}</td><td>${cls}</td><td class="text-left px-2">${name}</td><td>${rec.bib}</td><td>${house}</td>
+                            <td class="font-bold">${rec.resultStr}</td><td>${partPoint.toFixed(1)}</td><td>${rankPoint.toFixed(1)}</td><td>0.0</td><td class="font-bold">${totalPoint.toFixed(1)}</td>
                         </tr>
                     `;
                 });
@@ -490,6 +484,9 @@
                 alert("讀取成績失敗！");
             }
         }
+
+        // 啟動讀取
+        fetchAllData();
     </script>
 </body>
 </html>
