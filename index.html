@@ -232,10 +232,12 @@
                                 <th class="py-3 px-4 text-left">姓名</th>
                                 <th class="py-3 px-4 text-center">性別</th>
                                 <th class="py-3 px-4 text-left">工作崗位</th>
+                                <!-- 新增操作欄位 -->
+                                <th class="py-3 px-4 text-center">操作</th>
                             </tr>
                         </thead>
                         <tbody id="helper-query-tbody" class="text-gray-600 text-sm font-light">
-                            <tr><td colspan="6" class="py-10 text-center text-gray-400">請先在上方選擇工作崗位</td></tr>
+                            <tr><td colspan="7" class="py-10 text-center text-gray-400">請先在上方選擇工作崗位</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -251,12 +253,19 @@
                     <p>請確保您的 CSV 檔案包含以下標題列 (需完全一致)：<br>
                     <code class="bg-white px-1 rounded text-red-600">School Year, Class Code, Class No., Name (English), Name (Chinese), Sex, Login Name, DOB, email</code></p>
                 </div>
-                <div class="flex items-center gap-4 mb-4">
-                    <input type="file" id="csv-file" accept=".csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border rounded-md p-1">
-                    <button onclick="processCSV()" id="upload-btn" class="bg-green-600 hover:bg-green-700 text-white px-8 py-2 rounded shadow transition font-bold whitespace-nowrap flex items-center">
+                
+                <!-- 修改：加入清除資料庫按鈕 -->
+                <div class="flex flex-col md:flex-row items-start md:items-center gap-4 mb-4">
+                    <input type="file" id="csv-file" accept=".csv" class="block w-full md:w-auto text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer border rounded-md p-1">
+                    <button onclick="processCSV()" id="upload-btn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded shadow transition font-bold whitespace-nowrap flex items-center">
                         <i class="fas fa-database mr-2"></i> 開始匯入
                     </button>
+                    <!-- 新增清除按鈕 -->
+                    <button onclick="clearAllStudentsData()" id="clear-db-btn" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded shadow transition font-bold whitespace-nowrap flex items-center md:ml-auto">
+                        <i class="fas fa-trash-alt mr-2"></i> 清除所有學生資料
+                    </button>
                 </div>
+
                 <div id="upload-status" class="hidden mt-4 p-4 rounded-lg border">
                     <div class="flex items-center justify-between mb-2">
                         <span id="status-text" class="font-bold text-gray-700">準備中...</span>
@@ -390,7 +399,7 @@
                 <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300 shadow-sm">
                     <label class="block text-sm font-bold text-yellow-800 mb-2"><i class="fas fa-hands-helping mr-1"></i> 大會工作人員崗位：</label>
                     <select id="edit-helper" class="w-full border border-yellow-400 rounded px-3 py-2 bg-white focus:outline-none focus:border-yellow-500">
-                        <option value="">無 (不擔任工作人員)</option>
+                        <option value="">無 (不擔任工作人員 / 取消崗位)</option>
                         <option value="司令台">司令台</option>
                         <option value="跳高裁判員">跳高裁判員</option>
                         <option value="跳遠裁判員">跳遠裁判員</option>
@@ -418,10 +427,10 @@
         </div>
     </div>
 
-    <!-- Firebase SDK (加入了 getDoc 和 setDoc) -->
+    <!-- Firebase SDK (加入了 deleteDoc 用於清除資料) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-        import { getFirestore, doc, writeBatch, collection, getDocs, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        import { getFirestore, doc, writeBatch, collection, getDocs, getDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB6N110dVd8_T9tygXEApjTPsQC5HsF0IQ",
@@ -445,6 +454,7 @@
         window.getDocs = getDocs;
         window.getDoc = getDoc;
         window.setDoc = setDoc;
+        window.deleteDoc = deleteDoc;
 
         // 初始化完成後，載入系統設定
         if(window.db) {
@@ -981,7 +991,7 @@
             const helperFilter = document.getElementById('helper-filter').value;
             
             if (!helperFilter) {
-                tbody.innerHTML = '<tr><td colspan="6" class="py-10 text-center text-gray-400">請先在上方選擇工作崗位</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="py-10 text-center text-gray-400">請先在上方選擇工作崗位</td></tr>';
                 return;
             }
             
@@ -1001,7 +1011,7 @@
 
             if (filteredData.length === 0) {
                 const msg = helperFilter === 'ALL' ? '目前沒有任何學生擔任工作人員' : `目前沒有學生擔任「${helperFilter}」`;
-                tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-gray-500">${msg}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-gray-500">${msg}</td></tr>`;
                 return;
             }
 
@@ -1015,6 +1025,11 @@
                     <td class="py-3 px-4 text-left">${student.nameZh || student.nameEn}</td>
                     <td class="py-3 px-4 text-center">${student.gender || '-'}</td>
                     <td class="py-3 px-4 text-left font-bold text-yellow-700">${student.helperRole}</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="openEditModal('${student.loginName}')" class="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded transition text-sm flex items-center justify-center mx-auto">
+                            <i class="fas fa-edit mr-1"></i> 編輯
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -1188,8 +1203,54 @@
         }
 
         // ==========================================
-        // 其他工具功能 (隨機產生、CSV上傳)
+        // 其他工具功能 (隨機產生、CSV上傳、清除資料)
         // ==========================================
+        
+        // 新增：清除所有學生資料功能
+        async function clearAllStudentsData() {
+            if (!window.db) return alert("Firebase 尚未初始化！");
+            
+            const confirm1 = confirm("⚠️ 警告：您即將刪除資料庫中【所有】學生的資料與報名紀錄！\n\n此操作無法復原。您確定要繼續嗎？");
+            if (!confirm1) return;
+            
+            const confirm2 = prompt("請輸入大寫的「DELETE」以確認刪除所有資料：");
+            if (confirm2 !== "DELETE") {
+                alert("已取消刪除操作。");
+                return;
+            }
+
+            const btn = document.getElementById('clear-db-btn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 刪除中...';
+            btn.disabled = true;
+
+            try {
+                const querySnapshot = await window.getDocs(window.collection(window.db, "students"));
+                
+                // Firestore 的 batch 限制一次最多 500 筆操作，因此需要分批刪除
+                const CHUNK_SIZE = 400;
+                const docs = querySnapshot.docs;
+                
+                for (let i = 0; i < docs.length; i += CHUNK_SIZE) {
+                    const chunk = docs.slice(i, i + CHUNK_SIZE);
+                    const batch = window.writeBatch(window.db);
+                    chunk.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+                    await batch.commit();
+                }
+
+                alert("✅ 所有學生資料已成功清除！\n現在您可以開始匯入新一年的資料。");
+                globalStudentsData = [];
+                fetchStudentsData(); // 重新整理畫面
+            } catch (error) {
+                alert("❌ 刪除失敗：" + error.message);
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+
         async function randomizeRegistrations() {
             if (!window.db || globalStudentsData.length === 0) return alert("請先確保資料庫中有學生資料！");
             if (!confirm("⚠️ 警告：這將會覆蓋目前所有學生的報名資料，隨機產生 1~3 個項目，或指派為工作人員。確定要繼續嗎？")) return;
