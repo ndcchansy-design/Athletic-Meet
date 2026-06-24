@@ -80,6 +80,7 @@
         let globalStudentsData = [];
         let eventMap = new Map();
         let scheduleData = [];
+        let globalRecordsData = {}; // 儲存歷屆大會紀錄
         let globalSchoolYear = ""; 
 
         const getChineseYear = (yearStr) => {
@@ -95,6 +96,18 @@
 
         async function fetchAllData() {
             if (!db) return;
+            
+            // 讀取歷屆紀錄
+            try {
+                const recordsSnap = await getDoc(doc(db, "settings", "records"));
+                if (recordsSnap.exists()) {
+                    globalRecordsData = recordsSnap.data();
+                }
+            } catch (e) {
+                console.error("讀取歷屆紀錄失敗", e);
+            }
+
+            // 讀取學生資料
             try {
                 const studentSnap = await getDocs(collection(db, "students"));
                 studentSnap.forEach((doc) => {
@@ -115,6 +128,7 @@
                 return;
             }
 
+            // 讀取賽程表
             try {
                 const scheduleSnap = await getDocs(collection(db, "schedule"));
                 scheduleSnap.forEach(doc => scheduleData.push({ id: doc.id, ...doc.data() }));
@@ -182,6 +196,9 @@
             const eventNo = selectedOption.getAttribute('data-itemno') || ''; 
             const stage = document.getElementById('stage-select').value;
             const eventTime = selectedOption.getAttribute('data-time') || '__:__';
+
+            // 取得該項目的大會紀錄
+            const eventRecord = globalRecordsData[eventName] || null;
 
             document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('export-btn').classList.remove('hidden');
@@ -258,19 +275,28 @@
                     const totalPages = Math.ceil(heat.data.length / 20) || 1;
                     for (let p = 0; p < totalPages; p++) {
                         const chunk = heat.data.slice(p * 20, (p + 1) * 20);
-                        container.innerHTML += buildA4Page(eventNo, eventName, stage, chunk, isField, isLongDist, copy.role, copy.subtitle, index + 1, heat.heatName, eventTime, p + 1, totalPages, p * 20);
+                        container.innerHTML += buildA4Page(eventNo, eventName, stage, chunk, isField, isLongDist, copy.role, copy.subtitle, index + 1, heat.heatName, eventTime, p + 1, totalPages, p * 20, eventRecord);
                     }
                 });
             });
         }
 
-        function buildA4Page(eventNo, eventName, stage, heatData, isField, isLongDist, role, subtitle, copyNum, heatName, eventTime, currentPage, totalPages, startIndex) {
+        // 新增 eventRecord 參數
+        function buildA4Page(eventNo, eventName, stage, heatData, isField, isLongDist, role, subtitle, copyNum, heatName, eventTime, currentPage, totalPages, startIndex, eventRecord) {
             let category = "", item = eventName;
             const parts = eventName.split(' ');
             if(parts.length > 1) { category = parts[0]; item = parts.slice(1).join(' '); }
 
             const eventNoDisplay = eventNo ? `【${eventNo}】 ` : `【未編號】 `;
             const zhYear = getChineseYear(globalSchoolYear);
+
+            // 產生大會紀錄的 HTML
+            let recordHtml = '';
+            if (eventRecord) {
+                recordHtml = `<div class="text-sm mt-1 text-gray-800">大會紀錄：<span class="font-bold text-red-600 underline">${eventRecord.record}</span> (${eventRecord.holder}, ${eventRecord.year})</div>`;
+            } else {
+                recordHtml = `<div class="text-sm mt-1 text-gray-400">大會紀錄：無</div>`;
+            }
 
             let tableHeaders = isField ? 
                 `<tr><th width="4%">次序</th><th width="6%">號碼布</th><th width="16%">姓名</th><th width="6%">班別</th><th width="7%">初 1</th><th width="7%">初 2</th><th width="7%">初 3</th><th width="6%">決賽次序</th><th width="7%">決 1</th><th width="7%">決 2</th><th width="7%">決 3</th><th width="12%">最佳成績</th><th width="8%">名次</th></tr>` : 
@@ -302,6 +328,7 @@
                             <div class="flex justify-between items-end border-b-2 border-black pb-2">
                                 <div class="text-left">
                                     <div class="text-lg font-bold">項目：${eventNoDisplay}${category} <span class="text-xl mx-2">${item}</span> ${stage}${heatName ? ` - ${heatName}` : ''}</div>
+                                    ${recordHtml}
                                     <div class="text-sm mt-2">比賽日期：_____月_____日 &nbsp;&nbsp; 時間：${eventTime}</div>
                                 </div>
                                 <div class="text-right">
