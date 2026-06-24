@@ -350,7 +350,6 @@
             heatData.forEach((stu, idx) => {
                 if (stu.isEmpty) {
                     if (isField) {
-                        // 修正：將 colspan="3" 拆開，確保垂直線顯示
                         tableRows += `<tr><td>${startIndex + idx + 1}</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="bg-gray-100"></td><td></td><td></td><td></td><td class="bg-gray-50"></td><td></td></tr>`;
                     } else {
                         tableRows += `<tr><td class="font-bold">${stu.assignedLane}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
@@ -361,7 +360,6 @@
                     const qualTime = stu.qualifyingTime ? `晉級成績: ${stu.qualifyingTime}` : '';
                     
                     if(isField) {
-                        // 修正：將 colspan="3" 拆開為 3 個獨立的 <td>，確保垂直線顯示
                         tableRows += `<tr>
                             <td>${startIndex + idx + 1}</td>
                             <td class="font-bold">${stu.bibNumber || ''}</td>
@@ -409,9 +407,10 @@
                     
                     <!-- 簽署位置，會自動貼齊 A4 底部 -->
                     <div class="mt-8">
-                        <div class="flex justify-between text-base px-10 font-bold">
-                            <div>紀錄員簽署：_______________________</div>
-                            <div>裁判長簽署：_______________________</div>
+                        <div class="flex justify-between text-base px-4 font-bold">
+                            <div>召集員簽署：___________________</div>
+                            <div>紀錄員簽署：___________________</div>
+                            <div>裁判長簽署：___________________</div>
                         </div>
                         <div class="text-right text-xs text-gray-500 mt-4">
                             頁數：${currentPage} / ${totalPages}
