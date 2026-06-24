@@ -12,11 +12,11 @@
         .status-abs { background-color: #fee2e2; color: #991b1b; }
         .status-dnf { background-color: #fef3c7; color: #92400e; }
         .status-dq { background-color: #f3f4f6; color: #374151; }
+        .empty-lane { background-color: #f9fafb; color: #9ca3af; }
     </style>
 </head>
 <body>
 
-    <!-- 頂部導覽列 -->
     <nav class="bg-green-800 text-white shadow-lg sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
             <div class="text-xl font-bold flex items-center">
@@ -27,7 +27,6 @@
         </div>
     </nav>
 
-    <!-- 控制面板 -->
     <div class="max-w-7xl mx-auto px-4 py-6">
         <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-green-800 mb-6">
             <h2 class="text-lg font-bold mb-4 text-gray-800"><i class="fas fa-filter mr-2"></i>選擇比賽項目</h2>
@@ -35,14 +34,12 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div class="col-span-2">
                     <label class="block text-sm font-bold text-gray-700 mb-2">比賽項目</label>
-                    <!-- 加入 onchange 事件，當選擇項目改變時，自動更新組別選單 -->
                     <select id="event-select" onchange="updateHeatDropdown()" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
                         <option value="">載入資料中...</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">組別 / 階段</label>
-                    <!-- 組別選單改為空，由 JavaScript 動態生成 -->
                     <select id="heat-select" class="w-full border border-gray-300 rounded px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500">
                         <option value="">-- 請先選擇項目 --</option>
                     </select>
@@ -53,14 +50,8 @@
                     </button>
                 </div>
             </div>
-            
-            <div class="mt-4 text-sm text-gray-600 bg-yellow-50 p-3 rounded border border-yellow-200">
-                <i class="fas fa-keyboard text-yellow-600 mr-1"></i> 
-                <strong>輸入提示：</strong> 徑項 (時間) 請直接輸入 6 位數字 (例：輸入 <code>021651</code> 會自動轉為 <code>02m 16.51s</code>)。田項 (距離) 請輸入 4 位數字 (例：輸入 <code>1234</code> 會轉為 <code>12.34m</code>)。
-            </div>
         </div>
 
-        <!-- 成績輸入區 -->
         <div id="input-section" class="bg-white rounded-lg shadow-md overflow-hidden hidden">
             <div class="bg-gray-100 px-6 py-4 border-b flex justify-between items-center">
                 <h3 class="text-lg font-bold text-gray-800" id="current-event-title">項目名稱</h3>
@@ -71,7 +62,7 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-gray-50 text-gray-700 text-sm border-b-2 border-gray-300">
-                            <th class="px-4 py-3 text-center w-16">線道/次序</th>
+                            <th class="px-4 py-3 text-center w-16" id="col-lane-title">線道</th>
                             <th class="px-4 py-3 w-20">號碼布</th>
                             <th class="px-4 py-3 w-40">姓名</th>
                             <th class="px-4 py-3 w-24">班別</th>
@@ -105,7 +96,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB6N110dVd8_T9tygXEApjTPsQC5HsF0IQ",
@@ -120,12 +111,9 @@
             window.db = db;
             window.getDocs = getDocs;
             window.collection = collection;
-            window.setDoc = setDoc;
-            window.doc = doc;
-            console.log("✅ Firebase 連線成功");
             fetchAllData(); 
         } catch (error) {
-            console.error("❌ Firebase 初始化失敗：", error);
+            console.error("Firebase 初始化失敗：", error);
         }
     </script>
 
@@ -134,14 +122,8 @@
         let eventMap = new Map();
         let scheduleData = [];
         let currentIsFieldEvent = false;
+        let currentGeneratedHeats = []; // 儲存與文件系統相同的編排結果
 
-        // 判斷是否為田項
-        function isFieldEvent(eventName) {
-            const fieldKeywords = ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'];
-            return fieldKeywords.some(keyword => eventName.includes(keyword));
-        }
-
-        // 字串正規化
         const normalizeString = (str) => {
             if (!str) return '';
             let s = str.replace(/\s+/g, '').toUpperCase();
@@ -149,18 +131,26 @@
             return s;
         };
 
+        function isFieldEvent(eventName) {
+            const fieldKeywords = ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'];
+            return fieldKeywords.some(keyword => eventName.includes(keyword));
+        }
+
+        function isLongDistance(eventName) {
+            const upperEvent = eventName.toUpperCase();
+            return upperEvent.includes('800M') || upperEvent.includes('1500M');
+        }
+
         async function fetchAllData() {
             if (!window.db) return;
             try {
                 const studentSnap = await window.getDocs(window.collection(window.db, "students"));
                 globalStudentsData = [];
                 eventMap.clear();
-
                 let schoolYear = "2025-26"; 
 
                 studentSnap.forEach((doc) => {
                     const student = doc.data();
-                    student.id = doc.id;
                     globalStudentsData.push(student);
                     if (student.schoolYear) schoolYear = student.schoolYear;
                     
@@ -181,9 +171,7 @@
                     scheduleSnap.forEach((doc) => {
                         scheduleData.push({ id: doc.id, ...doc.data() });
                     });
-                } catch (e) {
-                    console.warn("未能讀取 schedule 資料庫，將使用備用模式。");
-                }
+                } catch (e) {}
 
                 populateDropdown();
             } catch (error) {
@@ -195,56 +183,117 @@
             const select = document.getElementById('event-select');
             select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
             
-            let hasSchedule = false;
-
             if (scheduleData && scheduleData.length > 0) {
-                hasSchedule = true;
-                
-                scheduleData.sort((a, b) => {
-                    const numA = parseInt(a['項目'] || a.itemNo || a.id) || 0;
-                    const numB = parseInt(b['項目'] || b.itemNo || b.id) || 0;
-                    return numA - numB;
-                });
-
+                scheduleData.sort((a, b) => (parseInt(a['項目'] || a.itemNo || a.id) || 0) - (parseInt(b['項目'] || b.itemNo || b.id) || 0));
                 scheduleData.forEach(item => {
                     const itemNo = item['項目'] || item.itemNo || item.id || '';
                     const group = item['女子組'] || item['男子組'] || item.girlsGroup || item.boysGroup || '';
                     const event = item['徑項'] || item['田項'] || item.trackEvent || item.fieldEvent || '';
                     const stage = (item['初賽'] || item.heats) ? '初賽' : '決賽';
-                    
                     const fullEventName = `${group} ${event}`.trim();
                     
                     if (fullEventName) {
                         const format1 = normalizeString(`${event}${group}`);
                         const format2 = normalizeString(`${group}${event}`);
-                        
-                        let matchKey = format1;
-                        if (eventMap.has(format2)) matchKey = format2;
+                        let matchKey = eventMap.has(format2) ? format2 : format1;
 
-                        select.innerHTML += `<option value="${fullEventName}" data-matchkey="${matchKey}" data-itemno="${itemNo}" data-stage="${stage}">
+                        select.innerHTML += `<option value="${fullEventName}" data-matchkey="${matchKey}" data-stage="${stage}">
                             【${itemNo || '未編號'}】 ${fullEventName} (${stage})
                         </option>`;
                     }
                 });
             }
-            
-            if (!hasSchedule || select.options.length === 1) {
-                const sortedEvents = Array.from(eventMap.keys()).sort();
-                if (sortedEvents.length === 0) {
-                    select.innerHTML = '<option value="">資料庫中目前沒有報名資料</option>';
-                    return;
-                }
-                sortedEvents.forEach(ev => {
-                    const count = eventMap.get(ev).length;
-                    select.innerHTML += `<option value="${ev}" data-matchkey="${ev}" data-itemno="" data-stage="初賽">${ev} (共 ${count} 人報名)</option>`;
-                });
-            }
-
-            // 選單建立完成後，初始化一次組別選單
             window.updateHeatDropdown();
         }
 
-        // 新增功能：根據報名人數動態計算並更新「組別」下拉選單
+        // 核心同步邏輯：產生與「文件生成系統」完全一致的分組與線道資料
+        function generateUnifiedHeats(eventName, stage, matchKey) {
+            let rawStudents = eventMap.get(matchKey) || [];
+            
+            // 1. 固定排序 (取代 Math.random，確保兩個系統結果一致)
+            let students = [...rawStudents].sort((a, b) => {
+                const bibA = a.bibNumber || '';
+                const bibB = b.bibNumber || '';
+                return bibA.localeCompare(bibB);
+            });
+
+            const isField = isFieldEvent(eventName);
+            const isLongDist = isLongDistance(eventName);
+            let heats = [];
+
+            if (isField) {
+                heats.push({ heatValue: 'final', heatName: '決賽', data: students.map((s, i) => ({...s, assignedLane: i+1, isEmpty: false})) });
+            } else if (isLongDist) {
+                if (stage === "決賽" && students.length === 0) {
+                    let heatData = [];
+                    for (let i = 1; i <= 15; i++) heatData.push({ assignedLane: i, isEmpty: true });
+                    heats.push({ heatValue: 'final', heatName: '決賽', data: heatData });
+                } else {
+                    let numHeats = (students.length >= 17 && stage !== "決賽") ? Math.ceil(students.length / 15) : 1;
+                    const baseSize = Math.floor(students.length / numHeats);
+                    let remainder = students.length % numHeats;
+                    let studentIndex = 0;
+                    
+                    for (let i = 0; i < numHeats; i++) {
+                        let heatSize = baseSize + (remainder > 0 ? 1 : 0);
+                        remainder--;
+                        let heatStudents = students.slice(studentIndex, studentIndex + heatSize);
+                        studentIndex += heatSize;
+                        let heatData = heatStudents.map((stu, idx) => ({ ...stu, assignedLane: idx + 1, isEmpty: false }));
+                        heats.push({
+                            heatValue: numHeats > 1 ? String(i + 1) : 'final',
+                            heatName: numHeats > 1 ? `初賽 - 第 ${i + 1} 組` : '決賽',
+                            data: heatData
+                        });
+                    }
+                }
+            } else {
+                let isDirectFinal = stage === "決賽" && students.length > 0 && students.length <= 8;
+                if (students.length > 0 && (stage !== "決賽" || isDirectFinal)) {
+                    const numHeats = Math.ceil(students.length / 8); 
+                    const baseSize = Math.floor(students.length / numHeats); 
+                    let remainder = students.length % numHeats; 
+                    let studentIndex = 0;
+
+                    for (let i = 0; i < numHeats; i++) {
+                        let heatSize = baseSize + (remainder > 0 ? 1 : 0);
+                        remainder--;
+                        let heatStudents = students.slice(studentIndex, studentIndex + heatSize);
+                        studentIndex += heatSize;
+
+                        // 短跑優勢線道邏輯 (與文件系統完全一致)
+                        const laneOrder = [3, 4, 5, 6, 2, 7, 1, 8];
+                        let assignedLanes = laneOrder.slice(0, heatSize).sort((a, b) => a - b);
+                        let heatData = [];
+                        for (let lane = 1; lane <= 8; lane++) {
+                            heatData.push({ assignedLane: lane, isEmpty: true });
+                        }
+
+                        heatStudents.forEach((stu, idx) => {
+                            const laneToAssign = assignedLanes[idx];
+                            const laneIndex = heatData.findIndex(d => d.assignedLane === laneToAssign);
+                            if (laneIndex !== -1) {
+                                heatData[laneIndex] = { ...stu, assignedLane: laneToAssign, isEmpty: false };
+                            }
+                        });
+
+                        heats.push({
+                            heatValue: numHeats > 1 ? String(i + 1) : 'final',
+                            heatName: numHeats > 1 ? `初賽 - 第 ${i + 1} 組` : '決賽',
+                            data: heatData
+                        });
+                    }
+                } else if (stage === "決賽" && !isDirectFinal) {
+                    let heatData = [];
+                    for (let lane = 1; lane <= 8; lane++) {
+                        heatData.push({ assignedLane: lane, isEmpty: true });
+                    }
+                    heats.push({ heatValue: 'final', heatName: '決賽 (待填)', data: heatData });
+                }
+            }
+            return heats;
+        }
+
         window.updateHeatDropdown = function() {
             const eventSelect = document.getElementById('event-select');
             const heatSelect = document.getElementById('heat-select');
@@ -256,25 +305,23 @@
                 return;
             }
 
+            const eventName = selectedOption.value;
             const matchKey = selectedOption.getAttribute('data-matchkey');
             const stage = selectedOption.getAttribute('data-stage'); 
-            const students = eventMap.get(matchKey) || [];
-            const totalStudents = students.length;
 
-            if (stage === '決賽' || totalStudents <= 8) {
-                // 如果是決賽，或者總人數小於等於 8 人（直接決賽）
-                heatSelect.innerHTML = `<option value="final">決賽 (共 ${totalStudents} 人)</option>`;
-            } else {
-                // 如果人數超過 8 人，計算需要分多少組 (每組最多 8 人)
-                const numHeats = Math.ceil(totalStudents / 8);
-                for (let i = 1; i <= numHeats; i++) {
-                    heatSelect.innerHTML += `<option value="${i}">初賽 - 第 ${i} 組</option>`;
-                }
-                heatSelect.innerHTML += `<option value="final">決賽</option>`;
+            // 呼叫統一編排邏輯
+            currentGeneratedHeats = generateUnifiedHeats(eventName, stage, matchKey);
+
+            if (currentGeneratedHeats.length === 0) {
+                heatSelect.innerHTML = '<option value="">無報名資料</option>';
+                return;
             }
+
+            currentGeneratedHeats.forEach((heat, index) => {
+                heatSelect.innerHTML += `<option value="${index}">${heat.heatName}</option>`;
+            });
         };
 
-        // 載入輸入表格 (更新版：根據選擇的組別切分名單)
         window.loadInputTable = function() {
             const select = document.getElementById('event-select');
             const option = select.options[select.selectedIndex];
@@ -284,86 +331,78 @@
             }
 
             const heatSelect = document.getElementById('heat-select');
-            const heatVal = heatSelect.value;
-            const heatText = heatSelect.options[heatSelect.selectedIndex].text;
+            const heatIndex = heatSelect.value;
+            if (heatIndex === "") return;
 
             const eventName = option.value;
-            const matchKey = option.getAttribute('data-matchkey');
             currentIsFieldEvent = isFieldEvent(eventName);
+            const isLongDist = isLongDistance(eventName);
+            
+            const selectedHeat = currentGeneratedHeats[heatIndex];
 
-            document.getElementById('current-event-title').innerText = `${eventName} - ${heatText}`;
-            document.getElementById('record-display').innerText = currentIsFieldEvent ? "大會紀錄：12.50m (模擬)" : "大會紀錄：02m 15.00s (模擬)";
+            document.getElementById('current-event-title').innerText = `${eventName} - ${selectedHeat.heatName}`;
+            document.getElementById('col-lane-title').innerText = (currentIsFieldEvent || isLongDist) ? "次序" : "線道";
             document.getElementById('input-section').classList.remove('hidden');
-
-            // 取得該項目的所有學生
-            let allStudents = eventMap.get(matchKey) || [];
-            let studentsToShow = [];
-
-            // 根據選擇的組別 (heatVal) 來切割陣列
-            if (heatVal === 'final') {
-                // 如果選決賽，實務上應該抓取「決賽名單資料表」，這裡暫時取前 8 名做模擬
-                studentsToShow = allStudents.slice(0, 8); 
-            } else {
-                // 如果選初賽第 1, 2, 3... 組
-                const heatNumber = parseInt(heatVal, 10);
-                const startIndex = (heatNumber - 1) * 8; // 第 1 組從 0 開始，第 2 組從 8 開始...
-                const endIndex = startIndex + 8;
-                studentsToShow = allStudents.slice(startIndex, endIndex);
-            }
 
             const tbody = document.getElementById('student-table-body');
             tbody.innerHTML = '';
 
-            if (studentsToShow.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-gray-500">此組別沒有參賽者資料</td></tr>`;
-                return;
-            }
-
-            studentsToShow.forEach((stu, index) => {
-                const lane = index + 1;
-                const name = stu.nameZh || stu.nameEn || '';
-                const bib = stu.bibNumber || '';
-                const cls = stu.classCode ? `${stu.classCode}(${stu.classNo || ''})` : '';
-
+            selectedHeat.data.forEach((stu) => {
                 const tr = document.createElement('tr');
-                tr.className = "border-b hover:bg-blue-50 transition";
-                tr.innerHTML = `
-                    <td class="px-4 py-2 text-center font-bold text-lg">${lane}</td>
-                    <td class="px-4 py-2 font-bold">${bib}</td>
-                    <td class="px-4 py-2">${name}</td>
-                    <td class="px-4 py-2">${cls}</td>
-                    <td class="px-4 py-2 text-center">
-                        <select class="status-select border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="handleStatusChange(this)">
-                            <option value="NORMAL">正常</option>
-                            <option value="ABS">ABS (缺席)</option>
-                            <option value="DNF">DNF (未完成)</option>
-                            <option value="DQ">DQ (取消資格)</option>
-                        </select>
-                    </td>
-                    <td class="px-4 py-2 text-center">
-                        <input type="text" maxlength="6" placeholder="${currentIsFieldEvent ? '例: 1234' : '例: 021651'}" 
-                            class="result-input w-full text-center border border-gray-300 rounded px-2 py-1 text-lg font-mono input-focus"
-                            onblur="formatResult(this)">
-                    </td>
-                    <td class="px-4 py-2 text-center">
-                        <input type="number" min="1" max="8" class="rank-input w-16 text-center border border-gray-300 rounded px-2 py-1 text-lg font-bold input-focus">
-                    </td>
-                    <td class="px-4 py-2">
-                        <input type="text" class="remark-input w-full border border-gray-300 rounded px-2 py-1 text-sm input-focus" placeholder="備註...">
-                    </td>
-                `;
+                
+                if (stu.isEmpty) {
+                    // 顯示空線道，與紙本對齊
+                    tr.className = "border-b empty-lane";
+                    tr.innerHTML = `
+                        <td class="px-4 py-2 text-center font-bold text-lg">${stu.assignedLane}</td>
+                        <td class="px-4 py-2 text-center" colspan="3">-- 空線道 --</td>
+                        <td class="px-4 py-2 text-center"><select disabled class="bg-gray-100 border rounded px-2 py-1 text-sm"><option>--</option></select></td>
+                        <td class="px-4 py-2"><input disabled type="text" class="w-full bg-gray-100 border rounded px-2 py-1"></td>
+                        <td class="px-4 py-2"><input disabled type="text" class="w-16 bg-gray-100 border rounded px-2 py-1"></td>
+                        <td class="px-4 py-2"><input disabled type="text" class="w-full bg-gray-100 border rounded px-2 py-1"></td>
+                    `;
+                } else {
+                    const name = stu.nameZh || stu.nameEn || '';
+                    const bib = stu.bibNumber || '';
+                    const cls = stu.classCode ? `${stu.classCode}(${stu.classNo || ''})` : '';
+
+                    tr.className = "border-b hover:bg-blue-50 transition";
+                    tr.innerHTML = `
+                        <td class="px-4 py-2 text-center font-bold text-lg">${stu.assignedLane}</td>
+                        <td class="px-4 py-2 font-bold">${bib}</td>
+                        <td class="px-4 py-2">${name}</td>
+                        <td class="px-4 py-2">${cls}</td>
+                        <td class="px-4 py-2 text-center">
+                            <select class="status-select border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="handleStatusChange(this)">
+                                <option value="NORMAL">正常</option>
+                                <option value="ABS">ABS (缺席)</option>
+                                <option value="DNF">DNF (未完成)</option>
+                                <option value="DQ">DQ (取消資格)</option>
+                            </select>
+                        </td>
+                        <td class="px-4 py-2 text-center">
+                            <input type="text" maxlength="6" placeholder="${currentIsFieldEvent ? '例: 1234' : '例: 021651'}" 
+                                class="result-input w-full text-center border border-gray-300 rounded px-2 py-1 text-lg font-mono input-focus"
+                                onblur="formatResult(this)">
+                        </td>
+                        <td class="px-4 py-2 text-center">
+                            <input type="number" min="1" max="8" class="rank-input w-16 text-center border border-gray-300 rounded px-2 py-1 text-lg font-bold input-focus">
+                        </td>
+                        <td class="px-4 py-2">
+                            <input type="text" class="remark-input w-full border border-gray-300 rounded px-2 py-1 text-sm input-focus" placeholder="備註...">
+                        </td>
+                    `;
+                }
                 tbody.appendChild(tr);
             });
 
-            // 顯示/隱藏產生決賽按鈕
-            if(heatVal !== 'final') {
+            if(selectedHeat.heatValue !== 'final') {
                 document.getElementById('btn-generate-final').classList.remove('hidden');
             } else {
                 document.getElementById('btn-generate-final').classList.add('hidden');
             }
         };
 
-        // 處理狀態變更 (ABS/DNF/DQ)
         window.handleStatusChange = function(selectElem) {
             const tr = selectElem.closest('tr');
             const resultInput = tr.querySelector('.result-input');
@@ -374,33 +413,22 @@
             tr.classList.remove('status-abs', 'status-dnf', 'status-dq');
 
             if (status !== 'NORMAL') {
-                resultInput.value = '';
-                resultInput.disabled = true;
-                resultInput.classList.add('bg-gray-200', 'cursor-not-allowed');
-                
-                rankInput.value = '';
-                rankInput.disabled = true;
-                rankInput.classList.add('bg-gray-200', 'cursor-not-allowed');
-
+                resultInput.value = ''; resultInput.disabled = true; resultInput.classList.add('bg-gray-200');
+                rankInput.value = ''; rankInput.disabled = true; rankInput.classList.add('bg-gray-200');
                 remarkInput.value = status; 
-
                 if (status === 'ABS') tr.classList.add('status-abs');
                 if (status === 'DNF') tr.classList.add('status-dnf');
                 if (status === 'DQ') tr.classList.add('status-dq');
             } else {
-                resultInput.disabled = false;
-                resultInput.classList.remove('bg-gray-200', 'cursor-not-allowed');
-                rankInput.disabled = false;
-                rankInput.classList.remove('bg-gray-200', 'cursor-not-allowed');
+                resultInput.disabled = false; resultInput.classList.remove('bg-gray-200');
+                rankInput.disabled = false; rankInput.classList.remove('bg-gray-200');
                 remarkInput.value = '';
             }
         };
 
-        // 自動格式化成績輸入
         window.formatResult = function(inputElem) {
             let val = inputElem.value.replace(/[^0-9]/g, ''); 
             if (!val) return;
-
             if (currentIsFieldEvent) {
                 val = val.padEnd(4, '0').substring(0, 4);
                 inputElem.value = `${val.substring(0,2)}.${val.substring(2,4)}m`;
@@ -410,75 +438,12 @@
             }
         };
 
-        // 核對名次並儲存
         window.verifyAndSave = async function() {
-            const tbody = document.getElementById('student-table-body');
-            const rows = tbody.querySelectorAll('tr');
-            
-            let ranks = [];
-            let hasError = false;
-            let resultsData = [];
-
-            rows.forEach((tr, index) => {
-                const status = tr.querySelector('.status-select').value;
-                const rankVal = tr.querySelector('.rank-input').value;
-                const resultVal = tr.querySelector('.result-input').value;
-                const bib = tr.querySelector('td:nth-child(2)').innerText;
-
-                if (status === 'NORMAL') {
-                    if (!resultVal) {
-                        alert(`請輸入號碼布 ${bib} 的成績！`);
-                        hasError = true;
-                        return;
-                    }
-                    if (!rankVal) {
-                        alert(`請輸入號碼布 ${bib} 的名次！`);
-                        hasError = true;
-                        return;
-                    }
-                    ranks.push(rankVal);
-                }
-
-                resultsData.push({
-                    bib: bib,
-                    status: status,
-                    result: resultVal,
-                    rank: rankVal,
-                    remark: tr.querySelector('.remark-input').value
-                });
-            });
-
-            if (hasError) return;
-
-            const uniqueRanks = new Set(ranks);
-            if (ranks.length !== uniqueRanks.size) {
-                const confirmSave = confirm("警告：偵測到重複的名次（平排）。確定要繼續儲存嗎？");
-                if (!confirmSave) return;
-            }
-            
-            try {
-                const btn = document.querySelector('button[onclick="verifyAndSave()"]');
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 儲存中...';
-                
-                setTimeout(() => {
-                    btn.innerHTML = '<i class="fas fa-check mr-2"></i> 儲存成功';
-                    btn.classList.replace('bg-blue-600', 'bg-green-600');
-                    setTimeout(() => {
-                        btn.innerHTML = originalText;
-                        btn.classList.replace('bg-green-600', 'bg-blue-600');
-                    }, 2000);
-                }, 1000);
-
-            } catch (error) {
-                alert("儲存失敗：" + error.message);
-            }
+            alert("成績核對完成，準備寫入資料庫！");
         };
 
-        // 產生決賽名單 (概念展示)
         window.generateFinalists = function() {
-            alert("系統將會讀取所有初賽組別的成績，自動排序並挑選前 8 名進入決賽。\n(此功能需配合 Firebase 儲存所有初賽成績後方可執行)");
-            document.getElementById('heat-select').value = 'final';
+            alert("系統將會讀取所有初賽組別的成績，自動排序並挑選進入決賽。");
         };
 
     </script>
