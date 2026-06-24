@@ -62,7 +62,7 @@
                     <i class="fas fa-filter mr-2"></i> 結算初賽並產生決賽名單
                 </button>
                 <button onclick="showFinalReport()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow transition flex items-center">
-                    <i class="fas fa-print mr-2"></i> 列印最終成績單
+                    <i class="fas fa-print mr-2"></i> 核對並列印最終成績單
                 </button>
                 <button onclick="saveResults()" id="save-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow transition flex items-center">
                     <i class="fas fa-save mr-2"></i> 儲存本組成績
@@ -139,6 +139,16 @@
             document.getElementById('status-indicator').innerHTML = '<i class="fas fa-times-circle mr-1"></i> 連線失敗';
             document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1 rounded bg-red-600';
         }
+
+        // ================= 大會紀錄設定區 =================
+        // 您可以在這裡填寫各項目的學校紀錄，系統會自動檢查是否破紀錄。
+        // 徑項單位為「毫秒」(例如 12.34秒 = 12340)
+        // 田項單位為「公分」(例如 5.67米 = 567)
+        const eventRecords = {
+            // "男甲100米": 11200, // 範例：11.20s
+            // "女甲跳遠": 450,    // 範例：4.50m
+        };
+        // ==================================================
 
         let globalStudentsData = [];
         let eventMap = new Map();
@@ -315,8 +325,10 @@
                 } else {
                     const name = stu.nameZh || stu.nameEn || '';
                     const cls = stu.classCode ? `${stu.classCode}(${stu.classNo||''})` : '';
-                    const placeholder = isField ? '例：4.56' : '例：021651';
-                    const onInputAttr = isField ? '' : 'oninput="formatTimeInput(this)"';
+                    
+                    // 田項與徑項的輸入提示與事件綁定
+                    const placeholder = isField ? '例：1234 (即12.34m)' : '例：021651';
+                    const onInputAttr = isField ? 'oninput="formatDistanceInput(this)"' : 'oninput="formatTimeInput(this)"';
 
                     html += `
                         <tr id="row-${stu.assignedLane}" class="border-b active-lane hover:bg-blue-50" data-bib="${stu.bibNumber}">
@@ -363,6 +375,7 @@
             }
         }
 
+        // 徑項時間格式化
         window.formatTimeInput = function(input) {
             let val = input.value.replace(/\D/g, '');
             if (val.length === 0) { input.value = ''; return; }
@@ -372,6 +385,89 @@
             else if (val.length <= 4) formatted = val.slice(0, -2) + '.' + val.slice(-2) + 's';
             else formatted = val.slice(0, -4) + 'm ' + val.slice(-4, -2) + '.' + val.slice(-2) + 's';
             input.value = formatted;
+        }
+
+        // 田項距離格式化 (4位數字 -> AB.CDm)
+        window.formatDistanceInput = function(input) {
+            let val = input.value.replace(/\D/g, '');
+            if (val.length === 0) { input.value = ''; return; }
+            if (val.length > 4) val = val.substring(0, 4);
+            
+            let formatted = '';
+            if (val.length === 1) formatted = '0.0' + val + 'm';
+            else if (val.length === 2) formatted = '0.' + val + 'm';
+            else if (val.length === 3) formatted = val.slice(0, 1) + '.' + val.slice(1) + 'm';
+            else formatted = val.slice(0, 2) + '.' + val.slice(2) + 'm';
+            
+            input.value = formatted;
+        }
+
+        // 核心邏輯：核對名次與成績是否衝突，並檢查是否破紀錄
+        function validateRecordsLogic(recordsArray, isField, eventKey) {
+            // 過濾出有成績與名次的正常紀錄
+            let validRecords = recordsArray.filter(r => r.status === '正常' && r.resultStr && r.rank);
+            if (validRecords.length < 2) return true; // 資料不足以比較
+
+            // 解析成績數值以便比較
+            let parsedRecords = validRecords.map(rec => {
+                let val = 0;
+                if (isField) {
+                    const match = rec.resultStr.match(/(\d+)\.(\d+)m/);
+                    if (match) val = parseInt(match[1]) * 100 + parseInt(match[2]); // 轉換為公分
+                } else {
+                    const match = rec.resultStr.match(/(?:(\d+)m\s*)?(\d+)\.(\d+)s/);
+                    if (match) val = (parseInt(match[1]||0) * 60000) + (parseInt(match[2]) * 1000) + (parseInt(match[3]) * 10); // 轉換為毫秒
+                }
+                return { ...rec, val, rankInt: parseInt(rec.rank) };
+            });
+
+            // 依照名次排序
+            parsedRecords.sort((a, b) => a.rankInt - b.rankInt);
+
+            // 檢查名次與成績衝突
+            for (let i = 0; i < parsedRecords.length - 1; i++) {
+                let current = parsedRecords[i];
+                let next = parsedRecords[i+1];
+                
+                // 處理同名次的情況
+                if (current.rankInt === next.rankInt) {
+                    if (current.val !== next.val) {
+                        alert(`⚠️ 錯誤：名次與成績衝突！\n兩位第 ${current.rankInt} 名的成績不相同 (${current.resultStr} vs ${next.resultStr})\n請修正後再繼續。`);
+                        return false;
+                    }
+                    continue;
+                }
+
+                // 檢查成績邏輯
+                if (isField) {
+                    // 田項：名次越前面，數值(距離)應該越大
+                    if (current.val < next.val) {
+                        alert(`⚠️ 錯誤：名次與成績衝突！\n第 ${current.rankInt} 名成績 (${current.resultStr}) 差於 第 ${next.rankInt} 名成績 (${next.resultStr})\n請修正後再繼續。`);
+                        return false;
+                    }
+                } else {
+                    // 徑項：名次越前面，數值(時間)應該越小
+                    if (current.val > next.val) {
+                        alert(`⚠️ 錯誤：名次與成績衝突！\n第 ${current.rankInt} 名成績 (${current.resultStr}) 差於 第 ${next.rankInt} 名成績 (${next.resultStr})\n請修正後再繼續。`);
+                        return false;
+                    }
+                }
+            }
+
+            // 檢查是否破紀錄
+            if (eventRecords[eventKey]) {
+                let bestRecord = parsedRecords[0];
+                let recordVal = eventRecords[eventKey];
+                let isBroken = false;
+                if (isField && bestRecord.val > recordVal) isBroken = true;
+                if (!isField && bestRecord.val < recordVal) isBroken = true;
+                
+                if (isBroken) {
+                    alert(`🎉 破紀錄！\n號碼布 ${bestRecord.bib} 的成績 (${bestRecord.resultStr}) 打破了 ${eventKey} 的大會紀錄！`);
+                }
+            }
+            
+            return true;
         }
 
         window.saveResults = async function() {
@@ -395,6 +491,11 @@
                     if (match && parseInt(match[2]) >= 60) return alert(`❌ 錯誤：秒數不能大於 60 (${resultStr})`);
                 }
                 recordsToSave.push({ lane, bib, status, resultStr, rank, remark });
+            }
+
+            // 儲存前先進行邏輯核對
+            if (!validateRecordsLogic(recordsToSave, isField, currentEventKey)) {
+                return; // 驗證失敗，中斷儲存
             }
 
             const docId = stage === '初賽' ? `${currentEventKey}_heat${heatIndex}` : `${currentEventKey}_final_results`;
@@ -439,9 +540,6 @@
                 allValidRecords.sort((a, b) => a.timeMs - b.timeMs);
                 const top8 = allValidRecords.slice(0, 8);
 
-                // 根據項目名稱自動判斷線道編排
-                // 如果項目名稱包含 200 或 400，使用 [2, 3, 4, 5, 6, 7, 8, 1]
-                // 其他項目（如 100米、100米跨欄）使用 [4, 5, 3, 6, 2, 7, 1, 8]
                 let laneOrder = [4, 5, 3, 6, 2, 7, 1, 8]; 
                 if (currentEventKey.includes('200') || currentEventKey.includes('400')) {
                     laneOrder = [2, 3, 4, 5, 6, 7, 8, 1];
@@ -475,6 +573,13 @@
                 if (!docSnap.exists()) return alert("尚未輸入決賽成績！");
 
                 const records = docSnap.data().records.filter(r => r.rank && r.status === '正常');
+                
+                // 列印前再次進行邏輯核對
+                const isField = isFieldEvent(currentEventKey);
+                if (!validateRecordsLogic(records, isField, currentEventKey)) {
+                    return; // 驗證失敗，中斷列印
+                }
+
                 records.sort((a, b) => parseInt(a.rank) - parseInt(b.rank));
 
                 const select = document.getElementById('event-select');
