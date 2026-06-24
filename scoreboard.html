@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>陸運會即時計分看板 - 獻主會聖母院書院</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background-color: #0f172a; color: white; overflow: hidden; }
+        .view-container { transition: opacity 0.8s ease-in-out, transform 0.8s ease-in-out; position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 1.5rem; box-sizing: border-box; }
+        .fade-out { opacity: 0; transform: scale(0.98); pointer-events: none; z-index: 0; }
+        .fade-in { opacity: 1; transform: scale(1); z-index: 10; }
+        .progress-bar { transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        
+        /* 隱藏滾動條但保留滾動功能 */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- 頂部導航列 -->
+    <header class="bg-slate-800 border-b border-slate-700 p-4 shadow-lg flex justify-between items-center z-50 shrink-0">
+        <div class="flex items-center gap-4">
+            <div class="bg-blue-600 p-2 rounded-lg shadow-lg">
+                <i class="fas fa-chart-line text-2xl text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold tracking-wider text-blue-400">獻主會聖母院書院</h1>
+                <p class="text-sm text-slate-400 font-medium tracking-widest">陸運會即時計分看板</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-6">
+            <div id="status-indicator" class="text-sm font-bold px-3 py-1 rounded bg-yellow-600 text-white flex items-center">
+                <i class="fas fa-sync fa-spin mr-2"></i> 載入資料中...
+            </div>
+            
+            <div class="flex bg-slate-900 rounded-full p-1 border border-slate-700">
+                <div id="tab-class" class="px-4 py-1.5 rounded-full text-sm font-bold bg-blue-600 text-white transition-colors">各班總分</div>
+                <div id="tab-champ" class="px-4 py-1.5 rounded-full text-sm font-bold text-slate-400 transition-colors">最佳運動員</div>
+            </div>
+            
+            <div class="flex items-center gap-2 text-2xl font-mono bg-slate-900 px-4 py-2 rounded-lg border border-slate-700 shadow-inner text-blue-300">
+                <i class="far fa-clock"></i>
+                <span id="clock">00:00:00</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要內容區 -->
+    <main class="flex-1 relative overflow-hidden">
+        
+        <!-- 視圖 1: 各班總分 -->
+        <div id="view-class" class="view-container fade-in flex flex-col max-w-7xl mx-auto">
+            <div class="flex items-center justify-center gap-4 mb-6 shrink-0">
+                <i class="fas fa-trophy text-4xl text-yellow-400"></i>
+                <h2 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-200 tracking-wider">
+                    全校各班總分排行榜
+                </h2>
+                <i class="fas fa-trophy text-4xl text-yellow-400"></i>
+            </div>
+
+            <div class="flex text-slate-400 font-bold text-sm px-4 pb-2 border-b border-slate-700 shrink-0">
+                <div class="w-16 text-center">排名</div>
+                <div class="w-24 text-center">班別</div>
+                <div class="flex-1 px-4">積分進度</div>
+                <div class="w-40 text-right">個人均分 + 接力</div>
+                <div class="w-32 text-right text-yellow-400 text-lg">總得分</div>
+            </div>
+
+            <div id="class-list-container" class="flex-1 overflow-y-auto flex flex-col gap-3 pt-3 pb-10">
+                <!-- 動態生成 -->
+            </div>
+        </div>
+
+        <!-- 視圖 2: 最佳運動員 -->
+        <div id="view-champ" class="view-container fade-out flex flex-col">
+            <div class="flex items-center justify-center gap-4 mb-6 shrink-0">
+                <i class="fas fa-star text-4xl text-yellow-400"></i>
+                <h2 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-200 tracking-wider">
+                    個人最佳運動員 (頭三名)
+                </h2>
+                <i class="fas fa-star text-4xl text-yellow-400"></i>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-1 overflow-y-auto pb-10 px-4 max-w-7xl mx-auto w-full">
+                <!-- 男子組 -->
+                <div class="space-y-6">
+                    <h3 class="text-2xl font-bold text-blue-400 border-b-2 border-blue-800 pb-2 flex items-center gap-2">
+                        <i class="fas fa-male text-3xl"></i> 男子組 (Boys)
+                    </h3>
+                    <div id="champ-boys-a"></div>
+                    <div id="champ-boys-b"></div>
+                    <div id="champ-boys-c"></div>
+                </div>
+
+                <!-- 女子組 -->
+                <div class="space-y-6">
+                    <h3 class="text-2xl font-bold text-pink-400 border-b-2 border-pink-800 pb-2 flex items-center gap-2">
+                        <i class="fas fa-female text-3xl"></i> 女子組 (Girls)
+                    </h3>
+                    <div id="champ-girls-a"></div>
+                    <div id="champ-girls-b"></div>
+                    <div id="champ-girls-c"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="bg-slate-950 border-t border-slate-800 p-2 text-center text-slate-500 text-xs shrink-0 z-50">
+        計分規則：班級總分 = (個人總得分 ÷ 班別人數) + 接力賽雙倍得分。個人計分：第1至8名得9至1分，參與分1分，缺席扣1分，工作人員加2分。同分以金牌數多者勝出。
+    </footer>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB6N110dVd8_T9tygXEApjTPsQC5HsF0IQ",
+            authDomain: "athletic-meet-85936.firebaseapp.com",
+            projectId: "athletic-meet-85936"
+        };
+
+        let db;
+        let studentsData = [];
+        let resultsData = [];
+        
+        // 計分設定
+        const RANK_POINTS = { 1: 9, 2: 7, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1 };
+        const PART_POINT = 1;
+        const ABSENT_PENALTY = -1;
+        const HELPER_POINT = 2;
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            initDataFetch();
+        } catch (error) {
+            document.getElementById('status-indicator').innerHTML = '<i class="fas fa-times-circle mr-2"></i> 連線失敗';
+            document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1 rounded bg-red-600 text-white flex items-center';
+            console.error("Firebase 初始化失敗", error);
+        }
+
+        // 時鐘更新
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString('zh-HK', { hour12: false });
+        }, 1000);
+
+        // 視圖輪播邏輯
+        let currentView = 'CLASS';
+        setInterval(() => {
+            const viewClass = document.getElementById('view-class');
+            const viewChamp = document.getElementById('view-champ');
+            const tabClass = document.getElementById('tab-class');
+            const tabChamp = document.getElementById('tab-champ');
+
+            if (currentView === 'CLASS') {
+                viewClass.classList.replace('fade-in', 'fade-out');
+                viewChamp.classList.replace('fade-out', 'fade-in');
+                tabClass.className = 'px-4 py-1.5 rounded-full text-sm font-bold text-slate-400 transition-colors';
+                tabChamp.className = 'px-4 py-1.5 rounded-full text-sm font-bold bg-yellow-600 text-white transition-colors';
+                currentView = 'CHAMP';
+            } else {
+                viewChamp.classList.replace('fade-in', 'fade-out');
+                viewClass.classList.replace('fade-out', 'fade-in');
+                tabChamp.className = 'px-4 py-1.5 rounded-full text-sm font-bold text-slate-400 transition-colors';
+                tabClass.className = 'px-4 py-1.5 rounded-full text-sm font-bold bg-blue-600 text-white transition-colors';
+                currentView = 'CLASS';
+            }
+        }, 15000); // 每 15 秒切換一次
+
+        async function initDataFetch() {
+            try {
+                // 1. 讀取學生資料 (一次性讀取)
+                const studentSnap = await getDocs(collection(db, "students"));
+                studentsData = [];
+                studentSnap.forEach(doc => studentsData.push(doc.data()));
+
+                // 2. 監聽成績資料 (即時更新)
+                onSnapshot(collection(db, "results"), (snapshot) => {
+                    resultsData = [];
+                    snapshot.forEach(doc => resultsData.push({ id: doc.id, ...doc.data() }));
+                    
+                    document.getElementById('status-indicator').innerHTML = '<i class="fas fa-check-circle mr-2"></i> 即時更新中';
+                    document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1 rounded bg-green-600 text-white flex items-center';
+                    
+                    calculateAndRender();
+                });
+
+            } catch (error) {
+                console.error("讀取資料失敗", error);
+            }
+        }
+
+        // 判斷組別 (與您系統邏輯一致)
+        function getStudentGrade(student) {
+            let year = 0;
+            if (student.dob) {
+                const match = student.dob.match(/\b(19|20)\d{2}\b/);
+                if (match) year = parseInt(match[0]);
+            }
+            if (year > 0) {
+                if (year >= 2012) return '丙組';
+                if (year >= 2010) return '乙組';
+                return '甲組';
+            }
+            if (student.classCode) {
+                const form = parseInt(student.classCode.charAt(0));
+                if (!isNaN(form)) {
+                    if (form <= 2) return '丙組';
+                    if (form <= 4) return '乙組';
+                    return '甲組';
+                }
+            }
+            return '甲組';
+        }
+
+        function calculateAndRender() {
+            let classStats = {}; 
+            let athleteStats = {};
+
+            // 初始化學生與班級數據
+            studentsData.forEach(s => {
+                if (!s.classCode) return;
+                
+                if (!classStats[s.classCode]) {
+                    classStats[s.classCode] = { size: 0, indTotal: 0, relayTotal: 0 };
+                }
+                classStats[s.classCode].size++;
+
+                let grade = getStudentGrade(s);
+                let gender = (s.gender === 'M' || s.gender === '男') ? '男子' : '女子';
+                let category = `${gender}${grade}`;
+
+                athleteStats[s.bibNumber] = {
+                    bib: s.bibNumber, name: s.nameZh || s.nameEn, classCode: s.classCode,
+                    category: category, score: 0, golds: 0, details: [],
+                    isHelper: !!s.helperRole, participations: new Set(), dnsCount: 0
+                };
+            });
+
+            // 處理成績數據
+            resultsData.forEach(resultDoc => {
+                if (!resultDoc.records) return;
+                
+                const isFinal = resultDoc.stage === '決賽' || resultDoc.id.includes('_final_results');
+                const isRelay = resultDoc.event && resultDoc.event.includes('接力');
+
+                resultDoc.records.forEach(rec => {
+                    if (rec.status === 'DNS') {
+                        if (athleteStats[rec.bib]) athleteStats[rec.bib].dnsCount++;
+                    } else if (rec.status === '正常') {
+                        // 記錄參與項目 (初賽決賽同項只算一次)
+                        if (athleteStats[rec.bib]) {
+                            // 移除 "初賽/決賽" 字眼以確保同項合併
+                            let baseEvent = resultDoc.event.replace('初賽', '').replace('決賽', '').trim();
+                            athleteStats[rec.bib].participations.add(baseEvent);
+                        }
+
+                        // 計算名次分 (只算決賽)
+                        if (isFinal && rec.rank) {
+                            let rank = parseInt(rec.rank);
+                            let pts = RANK_POINTS[rank] || 0;
+
+                            if (isRelay) {
+                                // 接力賽：嘗試從號碼布提取班別 (例如 4A接力 -> 4A)
+                                let clsMatch = rec.bib.match(/^([1-6][A-Z])/i);
+                                let cls = clsMatch ? clsMatch[1].toUpperCase() : null;
+                                if (!cls && athleteStats[rec.bib]) cls = athleteStats[rec.bib].classCode;
+
+                                if (cls && classStats[cls]) {
+                                    classStats[cls].relayTotal += (pts * 2); // 接力雙倍
+                                }
+                            } else {
+                                // 個人賽
+                                if (athleteStats[rec.bib]) {
+                                    athleteStats[rec.bib].score += pts;
+                                    if (rank === 1) athleteStats[rec.bib].golds++;
+                                    
+                                    let rankStr = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : `第${rank}`));
+                                    athleteStats[rec.bib].details.push(`${resultDoc.event.split(' ').pop()} ${rankStr}`);
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+
+            // 結算個人總分並加總至班級
+            Object.values(athleteStats).forEach(ath => {
+                let indPts = ath.score;
+                let partPts = ath.participations.size * PART_POINT;
+                let helperPts = ath.isHelper ? HELPER_POINT : 0;
+                let penaltyPts = ath.dnsCount > 0 ? (ath.dnsCount * ABSENT_PENALTY) : 0;
+
+                let totalIndPts = indPts + partPts + helperPts + penaltyPts;
+
+                if (classStats[ath.classCode]) {
+                    classStats[ath.classCode].indTotal += totalIndPts;
+                }
+            });
+
+            // 產生班級排行榜陣列
+            let finalClassScores = Object.keys(classStats).map(cls => {
+                let stats = classStats[cls];
+                if (stats.size === 0) return null;
+                
+                let avgInd = stats.indTotal / stats.size;
+                let total = avgInd + stats.relayTotal;
+                
+                return { 
+                    className: cls, 
+                    avgInd: avgInd, 
+                    relay: stats.relayTotal, 
+                    total: total 
+                };
+            }).filter(c => c !== null).sort((a, b) => b.total - a.total);
+
+            // 產生最佳運動員陣列 (排除 0 分者，依分數 > 金牌數排序)
+            let sortedAthletes = Object.values(athleteStats)
+                .filter(a => a.score > 0) 
+                .sort((a, b) => b.score !== a.score ? b.score - a.score : b.golds - a.golds);
+
+            let champions = { '男子甲組': [], '男子乙組': [], '男子丙組': [], '女子甲組': [], '女子乙組': [], '女子丙組': [] };
+            sortedAthletes.forEach(a => {
+                if (champions[a.category] && champions[a.category].length < 3) {
+                    champions[a.category].push(a);
+                }
+            });
+
+            // 渲染畫面
+            renderClassScores(finalClassScores);
+            renderChampions(champions);
+        }
+
+        function renderClassScores(scores) {
+            const container = document.getElementById('class-list-container');
+            container.innerHTML = '';
+            
+            if (scores.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-500 py-10">尚無成績資料</div>';
+                return;
+            }
+
+            const maxScore = Math.max(...scores.map(s => s.total), 1); // 避免除以 0
+
+            scores.forEach((cls, index) => {
+                let medalHtml = `<span class="text-xl font-bold text-slate-500">${index + 1}</span>`;
+                let barColor = 'from-blue-800 to-blue-500';
+                let totalColor = 'text-white';
+
+                if (index === 0) {
+                    medalHtml = `<i class="fas fa-medal text-3xl text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]"></i>`;
+                    barColor = 'from-yellow-600 to-yellow-400';
+                    totalColor = 'text-yellow-400';
+                } else if (index === 1) {
+                    medalHtml = `<i class="fas fa-medal text-3xl text-slate-300"></i>`;
+                    barColor = 'from-slate-500 to-slate-300';
+                    totalColor = 'text-slate-200';
+                } else if (index === 2) {
+                    medalHtml = `<i class="fas fa-medal text-3xl text-amber-600"></i>`;
+                    barColor = 'from-amber-700 to-amber-500';
+                    totalColor = 'text-amber-500';
+                }
+
+                const widthPercentage = (cls.total / maxScore) * 100;
+
+                container.innerHTML += `
+                    <div class="flex items-center glass-panel rounded-xl p-3 hover:bg-slate-800/80 transition-colors">
+                        <div class="w-16 flex justify-center">${medalHtml}</div>
+                        
+                        <div class="w-24 flex justify-center">
+                            <span class="text-2xl font-black text-white bg-slate-700/80 px-3 py-1 rounded-lg border border-slate-600">
+                                ${cls.className}
+                            </span>
+                        </div>
+
+                        <div class="flex-1 px-4 relative h-8 bg-slate-900/80 rounded-full overflow-hidden border border-slate-700">
+                            <div class="progress-bar absolute top-0 left-0 h-full rounded-full bg-gradient-to-r ${barColor}" style="width: 0%" data-width="${widthPercentage}%"></div>
+                        </div>
+
+                        <div class="w-40 text-right text-slate-400 font-mono text-sm">
+                            ${cls.avgInd.toFixed(1)} <span class="text-xs text-slate-500 mr-1">均分</span> 
+                            <span class="text-green-400">+${cls.relay}</span> <span class="text-xs text-slate-500">接力</span>
+                        </div>
+
+                        <div class="w-32 text-right">
+                            <span class="text-3xl font-black font-mono ${totalColor}">${cls.total.toFixed(1)}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 觸發進度條動畫
+            setTimeout(() => {
+                document.querySelectorAll('.progress-bar').forEach(bar => {
+                    bar.style.width = bar.getAttribute('data-width');
+                });
+            }, 100);
+        }
+
+        function renderChampions(champions) {
+            const renderCategory = (id, title, athletes, colorClass) => {
+                const container = document.getElementById(id);
+                let html = `<div class="glass-panel rounded-xl p-4 border-t-4 border-${colorClass}-500">
+                    <h4 class="text-xl font-bold mb-4 text-${colorClass}-300">${title}</h4>
+                    <div class="space-y-3">`;
+                
+                if (athletes.length === 0) {
+                    html += `<div class="text-center text-slate-500 text-sm py-4">尚無成績</div>`;
+                } else {
+                    athletes.forEach((ath, idx) => {
+                        let medalColor = idx === 0 ? 'text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]' : (idx === 1 ? 'text-slate-300' : 'text-amber-600');
+                        html += `
+                            <div class="flex items-center bg-slate-800/60 rounded-lg p-3 relative overflow-hidden">
+                                <div class="absolute -left-2 -top-4 text-6xl font-black text-slate-700/30 italic pointer-events-none">${idx + 1}</div>
+                                <div class="w-10 flex justify-center z-10"><i class="fas fa-medal text-2xl ${medalColor}"></i></div>
+                                <div class="flex-1 z-10 pl-2">
+                                    <div class="flex items-baseline gap-2">
+                                        <span class="text-lg font-bold text-white">${ath.name}</span>
+                                        <span class="text-xs font-medium text-slate-400 bg-slate-700 px-2 py-0.5 rounded">${ath.classCode}</span>
+                                    </div>
+                                    <div class="text-xs text-slate-400 mt-1 truncate">${ath.details.join(', ') || '無項目資料'}</div>
+                                </div>
+                                <div class="text-right z-10">
+                                    <div class="text-2xl font-black text-yellow-400 font-mono">${ath.score}</div>
+                                    <div class="text-[10px] text-slate-500">名次積分</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                html += `</div></div>`;
+                container.innerHTML = html;
+            };
+
+            renderCategory('champ-boys-a', '男子甲組', champions['男子甲組'], 'blue');
+            renderCategory('champ-boys-b', '男子乙組', champions['男子乙組'], 'blue');
+            renderCategory('champ-boys-c', '男子丙組', champions['男子丙組'], 'blue');
+            
+            renderCategory('champ-girls-a', '女子甲組', champions['女子甲組'], 'pink');
+            renderCategory('champ-girls-b', '女子乙組', champions['女子乙組'], 'pink');
+            renderCategory('champ-girls-c', '女子丙組', champions['女子丙組'], 'pink');
+        }
+    </script>
+</body>
+</html>
