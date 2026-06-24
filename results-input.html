@@ -195,7 +195,6 @@
                     const group = item['女子組'] || item['男子組'] || item.girlsGroup || item.boysGroup || '';
                     const event = item['徑項'] || item['田項'] || item.trackEvent || item.fieldEvent || '';
                     
-                    // 修正：不再過濾掉田項 (!isFieldEvent)
                     if(group && event) {
                         const fullEventName = `${group} ${event}`.trim();
                         const format1 = normalizeString(`${event}${group}`);
@@ -238,7 +237,6 @@
             const isField = isFieldEvent(currentEventKey);
 
             if (isField) {
-                // 田項邏輯：強制設定為決賽，隱藏結算按鈕，全部人排在同一組
                 stageSelect.value = "決賽";
                 stageSelect.disabled = true;
                 generateFinalsBtn.style.display = 'none';
@@ -247,7 +245,6 @@
                 let heatData = students.map((stu, idx) => ({ ...stu, assignedLane: idx + 1, isEmpty: false }));
                 currentHeatsData.push(heatData);
             } else {
-                // 徑項邏輯：恢復正常顯示
                 stageSelect.disabled = false;
                 generateFinalsBtn.style.display = 'flex';
                 const stage = stageSelect.value;
@@ -297,7 +294,6 @@
             });
             heatSelect.onchange = () => renderTable(parseInt(heatSelect.value), stageSelect.value);
             
-            // 自動選擇第一組並渲染
             if(currentHeatsData.length > 0) {
                 heatSelect.value = "0";
                 renderTable(0, stageSelect.value);
@@ -319,8 +315,6 @@
                 } else {
                     const name = stu.nameZh || stu.nameEn || '';
                     const cls = stu.classCode ? `${stu.classCode}(${stu.classNo||''})` : '';
-                    
-                    // 根據田項或徑項決定輸入框的行為
                     const placeholder = isField ? '例：4.56' : '例：021651';
                     const onInputAttr = isField ? '' : 'oninput="formatTimeInput(this)"';
 
@@ -340,7 +334,6 @@
             });
             tbody.innerHTML = html;
 
-            // 讀取已儲存的成績
             try {
                 const docId = stage === '初賽' ? `${currentEventKey}_heat${heatIndex}` : `${currentEventKey}_final_results`;
                 const docSnap = await getDoc(doc(db, "results", docId));
@@ -397,7 +390,6 @@
                 const rank = row.querySelector('.rank-input').value;
                 const remark = row.querySelector('.remark-input').value;
 
-                // 只有徑項才檢查秒數是否大於 60
                 if (!isField && status === '正常' && resultStr) {
                     const match = resultStr.match(/(?:(\d+)m\s*)?(\d+)\.(\d+)s/);
                     if (match && parseInt(match[2]) >= 60) return alert(`❌ 錯誤：秒數不能大於 60 (${resultStr})`);
@@ -447,7 +439,14 @@
                 allValidRecords.sort((a, b) => a.timeMs - b.timeMs);
                 const top8 = allValidRecords.slice(0, 8);
 
-                const laneOrder = [4, 5, 3, 6, 2, 7, 1, 8];
+                // 根據項目名稱自動判斷線道編排
+                // 如果項目名稱包含 200 或 400，使用 [2, 3, 4, 5, 6, 7, 8, 1]
+                // 其他項目（如 100米、100米跨欄）使用 [4, 5, 3, 6, 2, 7, 1, 8]
+                let laneOrder = [4, 5, 3, 6, 2, 7, 1, 8]; 
+                if (currentEventKey.includes('200') || currentEventKey.includes('400')) {
+                    laneOrder = [2, 3, 4, 5, 6, 7, 8, 1];
+                }
+
                 let finalRecords = top8.map((rec, index) => ({
                     lane: laneOrder[index],
                     bib: rec.bib,
