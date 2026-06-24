@@ -110,7 +110,7 @@
         </div>
     </div>
 
-    <!-- 列印報表容器 (保持不變) -->
+    <!-- 列印報表容器 -->
     <div id="print-report-container" class="hidden max-w-5xl mx-auto p-10 bg-white min-h-screen">
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold mb-2">Notre Dame College</h1>
@@ -295,10 +295,15 @@
             }
 
             try {
-                // 修改 1：從允許讀寫的 results 集合讀取名單
                 const startListSnap = await getDoc(doc(db, "results", `${currentEventKey}_${stage}_startlist`));
                 if (startListSnap.exists()) {
-                    currentHeatsData = startListSnap.data().heats;
+                    const savedHeats = startListSnap.data().heats;
+                    // 修正：檢查是否為包含 students 的物件陣列（避免 Firebase Nested Arrays 錯誤的新格式）
+                    if (savedHeats && savedHeats.length > 0 && savedHeats[0].students) {
+                        currentHeatsData = savedHeats.map(h => h.students);
+                    } else {
+                        currentHeatsData = savedHeats; // 相容舊格式
+                    }
                     finalizeGenerateHeats(stage);
                     return; 
                 }
@@ -438,19 +443,19 @@
 
             syncEditDataToState(heatIndex); 
 
-            // 修改 2：資料淨化，確保沒有 undefined 導致 Firebase 報錯
-            const sanitizedHeats = currentHeatsData.map(heat => 
-                heat.map(stu => ({
+            // 修正：將陣列包陣列 (Nested Arrays) 改為「物件包陣列」，繞過 Firebase 的限制
+            const sanitizedHeats = currentHeatsData.map((heat, idx) => ({
+                heatIndex: idx, // 加入一個屬性，讓它變成物件
+                students: heat.map(stu => ({
                     assignedLane: parseInt(stu.assignedLane) || stu.assignedLane || '',
                     bibNumber: stu.bibNumber || '',
                     nameZh: stu.nameZh || stu.nameEn || '',
                     classCode: stu.classCode || '',
                     isEmpty: !!stu.isEmpty
                 }))
-            );
+            }));
 
             try {
-                // 修改 3：改存入 results 集合，避免 start_lists 集合被安全規則阻擋
                 await setDoc(doc(db, "results", `${currentEventKey}_${stage}_startlist`), {
                     event: currentEventKey,
                     stage: stage,
@@ -461,7 +466,6 @@
                 window.toggleEditMode(false); 
             } catch(e) {
                 console.error(e);
-                // 顯示詳細錯誤訊息方便除錯
                 alert("儲存失敗！\n錯誤原因：" + e.message);
             }
         }
@@ -756,9 +760,12 @@
                     finalStartList.push({ assignedLane: laneOrder[i], isEmpty: true, bibNumber: '', nameZh: '', classCode: '' });
                 }
                 
-                // 修改 4：決賽名單也改存入 results 集合
+                // 修正：同樣將決賽名單包裝成物件陣列
                 await setDoc(doc(db, "results", `${currentEventKey}_決賽_startlist`), {
-                    event: currentEventKey, stage: '決賽', heats: [finalStartList], updatedAt: new Date().toISOString()
+                    event: currentEventKey, 
+                    stage: '決賽', 
+                    heats: [{ heatIndex: 0, students: finalStartList }], 
+                    updatedAt: new Date().toISOString()
                 });
 
                 alert("✅ 決賽名單產生成功！請將「比賽階段」切換至「決賽」查看。");
