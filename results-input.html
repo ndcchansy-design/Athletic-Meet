@@ -227,8 +227,6 @@
                 scheduleData.sort((a, b) => (parseInt(a['項目'] || a.itemNo || a.id) || 0) - (parseInt(b['項目'] || b.itemNo || b.id) || 0));
                 scheduleData.forEach(item => {
                     const itemNo = item['項目'] || item.itemNo || item.id || '';
-                    
-                    // 修正 1：擴充讀取欄位，確保接力賽（可能只有「組別」和「項目名稱」）也能被正確讀取
                     const group = item['組別'] || item['女子組'] || item['男子組'] || item.group || item.girlsGroup || item.boysGroup || '';
                     const event = item['比賽項目'] || item['項目名稱'] || item['徑項'] || item['田項'] || item.event || item.trackEvent || item.fieldEvent || '';
                     
@@ -244,7 +242,7 @@
                         const format2 = normalizeString(`${group}${event}`);
                         const format3 = normalizeString(fullEventName);
                         
-                        let matchKey = format3; // 預設使用完整名稱
+                        let matchKey = format3; 
                         if (eventMap.has(format2)) matchKey = format2;
                         else if (eventMap.has(format1)) matchKey = format1;
 
@@ -297,13 +295,14 @@
             }
 
             try {
-                const startListSnap = await getDoc(doc(db, "start_lists", `${currentEventKey}_${stage}`));
+                // 修改 1：從允許讀寫的 results 集合讀取名單
+                const startListSnap = await getDoc(doc(db, "results", `${currentEventKey}_${stage}_startlist`));
                 if (startListSnap.exists()) {
                     currentHeatsData = startListSnap.data().heats;
                     finalizeGenerateHeats(stage);
                     return; 
                 }
-            } catch(e) { console.error("讀取 start_lists 失敗", e); }
+            } catch(e) { console.error("讀取自訂名單失敗", e); }
 
             if (isField) {
                 let students = [...(eventMap.get(currentEventKey) || [])].sort((a, b) => (a.bibNumber || '').localeCompare(b.bibNumber || ''));
@@ -330,7 +329,6 @@
                             currentHeatsData.push(heatData);
                         }
                     } else {
-                        // 修正 2：如果沒有學生報名（例如接力賽），預設產生一組空的線道，讓使用者可以在編排模式中新增
                         let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
                         currentHeatsData.push(heatData);
                     }
@@ -399,10 +397,10 @@
                 let name = row.querySelector('.edit-name').value;
                 let cls = row.querySelector('.edit-class').value;
                 updatedHeat.push({
-                    assignedLane: lane,
-                    bibNumber: bib,
-                    nameZh: name,
-                    classCode: cls,
+                    assignedLane: lane || '',
+                    bibNumber: bib || '',
+                    nameZh: name || '',
+                    classCode: cls || '',
                     isEmpty: (!bib && !name) 
                 });
             });
@@ -440,18 +438,31 @@
 
             syncEditDataToState(heatIndex); 
 
+            // 修改 2：資料淨化，確保沒有 undefined 導致 Firebase 報錯
+            const sanitizedHeats = currentHeatsData.map(heat => 
+                heat.map(stu => ({
+                    assignedLane: parseInt(stu.assignedLane) || stu.assignedLane || '',
+                    bibNumber: stu.bibNumber || '',
+                    nameZh: stu.nameZh || stu.nameEn || '',
+                    classCode: stu.classCode || '',
+                    isEmpty: !!stu.isEmpty
+                }))
+            );
+
             try {
-                await setDoc(doc(db, "start_lists", `${currentEventKey}_${stage}`), {
+                // 修改 3：改存入 results 集合，避免 start_lists 集合被安全規則阻擋
+                await setDoc(doc(db, "results", `${currentEventKey}_${stage}_startlist`), {
                     event: currentEventKey,
                     stage: stage,
-                    heats: currentHeatsData,
+                    heats: sanitizedHeats,
                     updatedAt: new Date().toISOString()
                 });
-                alert("✅ 出賽名單編排已儲存！\n比賽文件生成系統現在可以讀取這份最新名單了。");
+                alert("✅ 出賽名單編排已儲存！");
                 window.toggleEditMode(false); 
             } catch(e) {
                 console.error(e);
-                alert("儲存失敗！請檢查網路連線。");
+                // 顯示詳細錯誤訊息方便除錯
+                alert("儲存失敗！\n錯誤原因：" + e.message);
             }
         }
 
@@ -735,16 +746,18 @@
                     let stu = globalStudentsData.find(s=>s.bibNumber===rec.bib) || {};
                     return {
                         assignedLane: laneOrder[index],
-                        bibNumber: rec.bib,
+                        bibNumber: rec.bib || '',
                         nameZh: stu.nameZh || stu.nameEn || '',
                         classCode: stu.classCode || '',
                         isEmpty: false
                     };
                 });
                 for(let i=finalStartList.length; i<8; i++) {
-                    finalStartList.push({ assignedLane: laneOrder[i], isEmpty: true });
+                    finalStartList.push({ assignedLane: laneOrder[i], isEmpty: true, bibNumber: '', nameZh: '', classCode: '' });
                 }
-                await setDoc(doc(db, "start_lists", `${currentEventKey}_決賽`), {
+                
+                // 修改 4：決賽名單也改存入 results 集合
+                await setDoc(doc(db, "results", `${currentEventKey}_決賽_startlist`), {
                     event: currentEventKey, stage: '決賽', heats: [finalStartList], updatedAt: new Date().toISOString()
                 });
 
@@ -754,7 +767,7 @@
 
             } catch (error) {
                 console.error(error);
-                alert("產生失敗！");
+                alert("產生失敗！\n錯誤原因：" + error.message);
             }
         }
 
