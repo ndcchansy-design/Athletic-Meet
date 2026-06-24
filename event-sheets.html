@@ -253,19 +253,25 @@
             let heats = []; 
             let hasStartList = false;
 
-            // ================= 核心修改 1：優先讀取 start_lists =================
+            // ================= 核心修改 1：正確對應成績輸入系統的儲存路徑與資料結構 =================
             try {
-                const startListSnap = await getDoc(doc(db, "start_lists", `${matchKey}_${stage}`));
+                // 修正 1：成績輸入系統是存在 "results" 集合，並且檔名後綴為 "_startlist"
+                const startListSnap = await getDoc(doc(db, "results", `${matchKey}_${stage}_startlist`));
                 if (startListSnap.exists()) {
                     const savedHeats = startListSnap.data().heats;
-                    savedHeats.forEach((heatData, index) => {
+                    savedHeats.forEach((heatObj, index) => {
                         let heatName = '';
                         if (savedHeats.length > 1) {
                             heatName = `第 ${index + 1} 組`;
                         } else if (stage === '決賽' && !isField) {
                             heatName = '決賽';
                         }
-                        heats.push({ heatName: heatName, data: heatData });
+                        
+                        // 修正 2：因為成績輸入系統改成了「物件包陣列」，所以要讀取 heatObj.students
+                        // (加入 fallback 機制以相容舊的純陣列格式)
+                        const studentsData = heatObj.students ? heatObj.students : heatObj;
+                        
+                        heats.push({ heatName: heatName, data: studentsData });
                     });
                     hasStartList = true;
                     console.log("✅ 成功載入自訂編排名單");
@@ -273,6 +279,7 @@
             } catch (e) {
                 console.error("讀取 start_lists 失敗", e);
             }
+            // =================================================================================
 
             // 如果是決賽且讀取了 start_lists，嘗試把晉級成績 (qualifyingTime) 補上去
             if (hasStartList && stage === '決賽' && !isField && !isLongDist) {
@@ -291,9 +298,8 @@
                     }
                 } catch(e) {}
             }
-            // =====================================================================
 
-            // ================= 核心修改 2：如果沒有自訂名單，使用原本的動態生成 =================
+            // 如果沒有自訂名單，使用原本的動態生成
             if (!hasStartList) {
                 if (stage === "決賽" && !isField && !isLongDist) {
                     try {
@@ -346,7 +352,6 @@
                     }
                 }
             }
-            // =====================================================================
             
             const copies = [
                 { role: "召集處", subtitle: "檢錄及點名用" },
