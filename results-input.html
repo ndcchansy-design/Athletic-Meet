@@ -26,7 +26,7 @@
     <nav class="bg-red-800 text-white shadow-lg sticky top-0 z-50 no-print">
         <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
             <div class="text-xl font-bold flex items-center">
-                <i class="fas fa-stopwatch mr-2"></i><span>成績輸入系統</span>
+                <i class="fas fa-stopwatch mr-2"></i><span>成績輸入系統 <span class="text-sm bg-red-900 px-2 py-1 rounded ml-2">含編排功能</span></span>
             </div>
             <div id="status-indicator" class="text-sm font-bold px-3 py-1 rounded bg-yellow-600">
                 <i class="fas fa-circle-notch fa-spin mr-1"></i> 連線中...
@@ -57,7 +57,12 @@
                     </select>
                 </div>
             </div>
-            <div class="mt-4 flex gap-3 justify-end border-t pt-4">
+            
+            <!-- 正常模式按鈕 -->
+            <div id="normal-action-buttons" class="mt-4 flex gap-3 justify-end border-t pt-4 flex-wrap">
+                <button onclick="toggleEditMode(true)" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded shadow transition flex items-center mr-auto">
+                    <i class="fas fa-edit mr-2"></i> 賽前編排 (修改名單)
+                </button>
                 <button id="generate-finals-btn" onclick="generateFinals()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded shadow transition flex items-center">
                     <i class="fas fa-filter mr-2"></i> 結算初賽並產生決賽名單
                 </button>
@@ -66,6 +71,22 @@
                 </button>
                 <button onclick="saveResults()" id="save-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow transition flex items-center">
                     <i class="fas fa-save mr-2"></i> 儲存本組成績
+                </button>
+            </div>
+
+            <!-- 編排模式按鈕 (預設隱藏) -->
+            <div id="edit-action-buttons" class="mt-4 hidden gap-3 justify-end border-t pt-4 flex-wrap bg-orange-50 p-3 rounded border border-orange-200">
+                <span class="text-orange-800 font-bold flex items-center mr-auto">
+                    <i class="fas fa-tools mr-2 text-xl"></i> 正在編排線道與名單...
+                </span>
+                <button onclick="addNewRow()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded shadow transition flex items-center">
+                    <i class="fas fa-plus mr-2"></i> 新增選手/接力隊
+                </button>
+                <button onclick="toggleEditMode(false)" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded shadow transition flex items-center">
+                    取消編排
+                </button>
+                <button onclick="saveStartList()" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-6 rounded shadow transition flex items-center">
+                    <i class="fas fa-cloud-upload-alt mr-2"></i> 儲存出賽名單至資料庫
                 </button>
             </div>
         </div>
@@ -77,15 +98,8 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="bg-gray-100 text-gray-600 text-sm border-b-2 border-gray-200">
-                            <th class="py-3 px-4 w-20 text-center">次序/線道</th>
-                            <th class="py-3 px-4 w-24">號碼布</th>
-                            <th class="py-3 px-4 w-32">姓名</th>
-                            <th class="py-3 px-4 w-24">班別</th>
-                            <th class="py-3 px-4 w-32">狀態</th>
-                            <th class="py-3 px-4 w-48">成績</th>
-                            <th class="py-3 px-4 w-24">名次</th>
-                            <th class="py-3 px-4">備註</th>
+                        <tr id="table-header" class="bg-gray-100 text-gray-600 text-sm border-b-2 border-gray-200">
+                            <!-- 表頭會由 JS 動態生成 -->
                         </tr>
                     </thead>
                     <tbody id="input-tbody">
@@ -96,6 +110,7 @@
         </div>
     </div>
 
+    <!-- 列印報表容器 (保持不變) -->
     <div id="print-report-container" class="hidden max-w-5xl mx-auto p-10 bg-white min-h-screen">
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold mb-2">Notre Dame College</h1>
@@ -140,25 +155,23 @@
             document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1 rounded bg-red-600';
         }
 
-        // ================= 大會紀錄變數 =================
-        let eventRecords = {};     // 存放轉換後的數值，用於程式比對 (例如 11560)
-        let rawEventRecords = {};  // 存放原始文字資料，用於介面顯示
-        // ================================================
-
+        let eventRecords = {};     
+        let rawEventRecords = {};  
         let globalStudentsData = [];
         let eventMap = new Map();
         let scheduleData = [];
         let currentHeatsData = []; 
         let currentEventKey = "";
         let currentEventNo = "";
+        
+        // 新增：追蹤是否處於編排模式
+        window.isEditMode = false;
 
         const normalizeString = (str) => str ? str.replace(/\s+/g, '').toUpperCase().replace('擲壘球', '壘球').replace('擲標槍', '標槍').replace('擲鐵餅', '鐵餅').replace('推鉛球', '鉛球').replace('推銘球', '鉛球') : '';
         const isFieldEvent = (eventName) => ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'].some(k => eventName.includes(k));
 
         async function fetchAllData() {
             if (!db) return;
-
-            // 1. 讀取歷屆紀錄
             try {
                 const recordsSnap = await getDoc(doc(db, "settings", "records"));
                 if (recordsSnap.exists()) {
@@ -166,13 +179,11 @@
                     for (let key in data) {
                         let recStr = data[key].record;
                         let normalizedKey = normalizeString(key);
-                        rawEventRecords[normalizedKey] = data[key]; // 儲存原始資料供顯示
-                        
-                        // 將紀錄字串轉換為數值以便比對
+                        rawEventRecords[normalizedKey] = data[key]; 
                         let val = 0;
                         const isField = isFieldEvent(key);
                         if (isField) {
-                            const match = recStr.match(/(\d+)\.(\d+)/); // 擷取數字部分
+                            const match = recStr.match(/(\d+)\.(\d+)/); 
                             if (match) val = parseInt(match[1]) * 100 + parseInt(match[2]); 
                         } else {
                             const match = recStr.match(/(?:(\d+)\s*m\s*)?(\d+)\.(\d+)/);
@@ -181,11 +192,8 @@
                         if (val > 0) eventRecords[normalizedKey] = val;
                     }
                 }
-            } catch (e) {
-                console.error("讀取歷屆紀錄失敗", e);
-            }
+            } catch (e) {}
 
-            // 2. 讀取學生報名資料
             try {
                 const studentSnap = await getDocs(collection(db, "students"));
                 studentSnap.forEach((doc) => {
@@ -200,18 +208,14 @@
                     }
                 });
             } catch (e) {
-                console.error("讀取學生資料失敗", e);
                 document.getElementById('event-select').innerHTML = '<option value="">讀取資料失敗，請檢查權限</option>';
                 return;
             }
 
-            // 3. 讀取賽程表 (若有)
             try {
                 const scheduleSnap = await getDocs(collection(db, "schedule"));
                 scheduleSnap.forEach(doc => scheduleData.push({ id: doc.id, ...doc.data() }));
-            } catch(e) {
-                console.warn("未能讀取 schedule 資料庫，將使用備用模式。");
-            }
+            } catch(e) {}
 
             populateEventDropdown();
         }
@@ -219,30 +223,24 @@
         function populateEventDropdown() {
             const select = document.getElementById('event-select');
             select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
-            
             let hasOptions = false;
-
             if (scheduleData.length > 0) {
                 scheduleData.sort((a, b) => (parseInt(a['項目'] || a.itemNo || a.id) || 0) - (parseInt(b['項目'] || b.itemNo || b.id) || 0));
-                
                 scheduleData.forEach(item => {
                     const itemNo = item['項目'] || item.itemNo || item.id || '';
                     const group = item['女子組'] || item['男子組'] || item.girlsGroup || item.boysGroup || '';
                     const event = item['徑項'] || item['田項'] || item.trackEvent || item.fieldEvent || '';
-                    
                     if(group && event) {
                         const fullEventName = `${group} ${event}`.trim();
                         const format1 = normalizeString(`${event}${group}`);
                         const format2 = normalizeString(`${group}${event}`);
                         let matchKey = format1;
                         if (eventMap.has(format2)) matchKey = format2;
-
                         select.innerHTML += `<option value="${matchKey}" data-itemno="${itemNo}" data-fullname="${fullEventName}">【${itemNo || '未編號'}】 ${fullEventName}</option>`;
                         hasOptions = true;
                     }
                 });
             }
-
             if (!hasOptions) {
                 const sortedEvents = Array.from(eventMap.keys()).sort();
                 if (sortedEvents.length === 0) {
@@ -257,33 +255,51 @@
             select.addEventListener('change', function() {
                 currentEventKey = this.value;
                 currentEventNo = this.options[this.selectedIndex].getAttribute('data-itemno');
+                window.isEditMode = false; // 切換項目時退出編排模式
+                toggleEditMode(false);
                 generateHeats();
             });
-            document.getElementById('stage-select').addEventListener('change', generateHeats);
+            document.getElementById('stage-select').addEventListener('change', () => {
+                window.isEditMode = false;
+                toggleEditMode(false);
+                generateHeats();
+            });
         }
 
         async function generateHeats() {
             const stageSelect = document.getElementById('stage-select');
-            const heatSelect = document.getElementById('heat-select');
             const generateFinalsBtn = document.getElementById('generate-finals-btn');
             if (!currentEventKey) return;
 
             currentHeatsData = [];
             const isField = isFieldEvent(currentEventKey);
-
+            const stage = isField ? "決賽" : stageSelect.value;
+            
             if (isField) {
                 stageSelect.value = "決賽";
                 stageSelect.disabled = true;
                 generateFinalsBtn.style.display = 'none';
+            } else {
+                stageSelect.disabled = false;
+                generateFinalsBtn.style.display = 'flex';
+            }
 
+            // 核心修改 1：優先從 Firebase 讀取儲存好的 start_lists (出賽名單)
+            try {
+                const startListSnap = await getDoc(doc(db, "start_lists", `${currentEventKey}_${stage}`));
+                if (startListSnap.exists()) {
+                    currentHeatsData = startListSnap.data().heats;
+                    finalizeGenerateHeats(stage);
+                    return; // 如果資料庫有儲存的名單，就直接使用並結束函數
+                }
+            } catch(e) { console.error("讀取 start_lists 失敗", e); }
+
+            // 核心修改 2：如果資料庫沒有儲存的名單，才使用原本的動態計算邏輯
+            if (isField) {
                 let students = [...(eventMap.get(currentEventKey) || [])].sort((a, b) => (a.bibNumber || '').localeCompare(b.bibNumber || ''));
                 let heatData = students.map((stu, idx) => ({ ...stu, assignedLane: idx + 1, isEmpty: false }));
                 currentHeatsData.push(heatData);
             } else {
-                stageSelect.disabled = false;
-                generateFinalsBtn.style.display = 'flex';
-                const stage = stageSelect.value;
-                
                 if (stage === "初賽") {
                     let students = [...(eventMap.get(currentEventKey) || [])].sort((a, b) => (a.bibNumber || '').localeCompare(b.bibNumber || ''));
                     if (students.length > 0) {
@@ -305,6 +321,7 @@
                         }
                     }
                 } else {
+                    // 決賽動態生成 (備用邏輯)
                     try {
                         const docSnap = await getDoc(doc(db, "results", `${currentEventKey}_final`));
                         let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
@@ -322,32 +339,123 @@
                     } catch(e) { console.error(e); }
                 }
             }
+            finalizeGenerateHeats(stage);
+        }
 
+        function finalizeGenerateHeats(stage) {
+            const heatSelect = document.getElementById('heat-select');
             heatSelect.innerHTML = '<option value="">-- 請選擇組別 --</option>';
             currentHeatsData.forEach((_, index) => {
-                heatSelect.innerHTML += `<option value="${index}">${(stageSelect.value === '初賽' && !isField) ? `第 ${index + 1} 組` : '決賽組'}</option>`;
+                heatSelect.innerHTML += `<option value="${index}">${(stage === '初賽' && !isFieldEvent(currentEventKey)) ? `第 ${index + 1} 組` : '決賽組'}</option>`;
             });
-            heatSelect.onchange = () => renderTable(parseInt(heatSelect.value), stageSelect.value);
+            heatSelect.onchange = () => renderTable(parseInt(heatSelect.value), stage);
             
             if(currentHeatsData.length > 0) {
                 heatSelect.value = "0";
-                renderTable(0, stageSelect.value);
+                renderTable(0, stage);
             }
         }
 
+        // ================= 新增：編排模式相關函數 =================
+        window.toggleEditMode = function(mode) {
+            if (!currentEventKey && mode) return alert("請先選擇比賽項目！");
+            window.isEditMode = mode;
+            
+            const normalBtns = document.getElementById('normal-action-buttons');
+            const editBtns = document.getElementById('edit-action-buttons');
+            
+            if (mode) {
+                normalBtns.classList.add('hidden');
+                editBtns.classList.remove('hidden');
+                editBtns.classList.add('flex');
+            } else {
+                normalBtns.classList.remove('hidden');
+                editBtns.classList.add('hidden');
+                editBtns.classList.remove('flex');
+            }
+            
+            const heatIndex = parseInt(document.getElementById('heat-select').value);
+            const stage = document.getElementById('stage-select').value;
+            if (!isNaN(heatIndex)) renderTable(heatIndex, stage);
+        }
+
+        function syncEditDataToState(heatIndex) {
+            let updatedHeat = [];
+            document.querySelectorAll('.edit-row').forEach(row => {
+                let lane = row.querySelector('.edit-lane').value;
+                let bib = row.querySelector('.edit-bib').value;
+                let name = row.querySelector('.edit-name').value;
+                let cls = row.querySelector('.edit-class').value;
+                updatedHeat.push({
+                    assignedLane: lane,
+                    bibNumber: bib,
+                    nameZh: name,
+                    classCode: cls,
+                    isEmpty: (!bib && !name) // 如果沒打字視為空線道
+                });
+            });
+            currentHeatsData[heatIndex] = updatedHeat;
+        }
+
+        window.addNewRow = function() {
+            const heatIndex = parseInt(document.getElementById('heat-select').value);
+            const stage = document.getElementById('stage-select').value;
+            if (isNaN(heatIndex)) return;
+            
+            syncEditDataToState(heatIndex); // 先同步畫面上打到一半的字
+            
+            let nextLane = currentHeatsData[heatIndex].length + 1;
+            currentHeatsData[heatIndex].push({
+                assignedLane: nextLane, bibNumber: '', nameZh: '', classCode: '', isEmpty: false
+            });
+            renderTable(heatIndex, stage);
+        }
+
+        window.deleteRow = function(idx) {
+            const heatIndex = parseInt(document.getElementById('heat-select').value);
+            const stage = document.getElementById('stage-select').value;
+            if (isNaN(heatIndex)) return;
+            
+            syncEditDataToState(heatIndex);
+            currentHeatsData[heatIndex].splice(idx, 1);
+            renderTable(heatIndex, stage);
+        }
+
+        window.saveStartList = async function() {
+            const heatIndex = parseInt(document.getElementById('heat-select').value);
+            const stage = document.getElementById('stage-select').value;
+            if (isNaN(heatIndex)) return;
+
+            syncEditDataToState(heatIndex); // 獲取畫面上最新的輸入
+
+            try {
+                // 將整份 currentHeatsData 存入 Firebase
+                await setDoc(doc(db, "start_lists", `${currentEventKey}_${stage}`), {
+                    event: currentEventKey,
+                    stage: stage,
+                    heats: currentHeatsData,
+                    updatedAt: new Date().toISOString()
+                });
+                alert("✅ 出賽名單編排已儲存！\n比賽文件生成系統現在可以讀取這份最新名單了。");
+                window.toggleEditMode(false); // 儲存後自動退出編排模式
+            } catch(e) {
+                console.error(e);
+                alert("儲存失敗！請檢查網路連線。");
+            }
+        }
+        // ==========================================================
+
         async function renderTable(heatIndex, stage) {
             const tbody = document.getElementById('input-tbody');
+            const thead = document.getElementById('table-header');
             if (isNaN(heatIndex)) { tbody.innerHTML = ''; return; }
 
             const isField = isFieldEvent(currentEventKey);
-            
-            // 顯示大會紀錄提示
             const recordInfo = rawEventRecords[currentEventKey];
             let recordHtml = recordInfo 
                 ? `<span class="text-sm bg-yellow-100 text-yellow-800 border border-yellow-300 px-3 py-1 rounded-full shadow-sm">
                     <i class="fas fa-trophy mr-1"></i> 大會紀錄: <strong>${recordInfo.record}</strong> (${recordInfo.holder}, ${recordInfo.year})
-                   </span>` 
-                : '';
+                   </span>` : '';
             
             document.getElementById('table-title').innerHTML = `
                 <span>${currentEventKey} - ${stage === '初賽' ? `第 ${heatIndex + 1} 組` : '決賽'}</span>
@@ -355,54 +463,92 @@
             `;
 
             const heatData = currentHeatsData[heatIndex];
-            
             let html = '';
-            heatData.forEach((stu) => {
-                if (stu.isEmpty) {
-                    html += `<tr class="border-b empty-lane"><td class="py-2 px-4 text-center font-bold text-xl">${stu.assignedLane}</td><td colspan="7" class="py-2 px-4 text-center">-- 空線道 --</td></tr>`;
-                } else {
-                    const name = stu.nameZh || stu.nameEn || '';
-                    const cls = stu.classCode ? `${stu.classCode}(${stu.classNo||''})` : '';
-                    
-                    const placeholder = isField ? '例：1234 (即12.34m)' : '例：021651';
-                    const onInputAttr = isField ? 'oninput="formatDistanceInput(this)"' : 'oninput="formatTimeInput(this)"';
 
+            if (window.isEditMode) {
+                // --- 編排模式 UI ---
+                thead.innerHTML = `
+                    <th class="py-3 px-4 w-24 text-center">次序/線道</th>
+                    <th class="py-3 px-4 w-32">號碼布/隊名</th>
+                    <th class="py-3 px-4 w-48">姓名</th>
+                    <th class="py-3 px-4 w-32">班別</th>
+                    <th class="py-3 px-4 text-center text-orange-600"><i class="fas fa-info-circle"></i> 編排模式中無法輸入成績</th>
+                    <th class="py-3 px-4 w-24 text-center">操作</th>
+                `;
+                heatData.forEach((stu, idx) => {
                     html += `
-                        <tr id="row-${stu.assignedLane}" class="border-b active-lane hover:bg-blue-50" data-bib="${stu.bibNumber}">
-                            <td class="py-3 px-4 text-center font-bold text-xl">${stu.assignedLane}</td>
-                            <td class="py-3 px-4 font-bold text-lg">${stu.bibNumber}</td>
-                            <td class="py-3 px-4 font-bold">${name}</td>
-                            <td class="py-3 px-4">${cls}</td>
-                            <td class="py-3 px-4"><select class="status-select border rounded px-2 py-1 w-full" onchange="handleStatusChange(this, ${stu.assignedLane})"><option value="正常">正常</option><option value="DNS">DNS</option><option value="DNF">DNF</option><option value="DQ">DQ</option></select></td>
-                            <td class="py-3 px-4"><input type="text" class="result-input border rounded px-3 py-1 w-full font-mono text-lg" placeholder="${placeholder}" ${onInputAttr}></td>
-                            <td class="py-3 px-4"><input type="number" class="rank-input border rounded px-3 py-1 w-full text-center font-bold" min="1" max="50"></td>
-                            <td class="py-3 px-4"><input type="text" class="remark-input border rounded px-3 py-1 w-full text-sm" placeholder="備註..."></td>
+                        <tr class="border-b edit-row bg-orange-50 hover:bg-orange-100 transition">
+                            <td class="py-2 px-4"><input type="text" class="edit-lane border border-orange-300 rounded w-full text-center font-bold py-1" value="${stu.assignedLane || ''}"></td>
+                            <td class="py-2 px-4"><input type="text" class="edit-bib border border-orange-300 rounded w-full py-1 px-2" value="${stu.isEmpty ? '' : (stu.bibNumber || '')}" placeholder="例如: 4A接力"></td>
+                            <td class="py-2 px-4"><input type="text" class="edit-name border border-orange-300 rounded w-full py-1 px-2" value="${stu.isEmpty ? '' : (stu.nameZh || stu.nameEn || '')}" placeholder="姓名"></td>
+                            <td class="py-2 px-4"><input type="text" class="edit-class border border-orange-300 rounded w-full py-1 px-2" value="${stu.isEmpty ? '' : (stu.classCode || '')}" placeholder="班別"></td>
+                            <td class="py-2 px-4 text-center text-gray-400 text-sm">--</td>
+                            <td class="py-2 px-4 text-center"><button onclick="deleteRow(${idx})" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm shadow"><i class="fas fa-trash"></i></button></td>
                         </tr>
                     `;
-                }
-            });
+                });
+            } else {
+                // --- 正常輸入成績 UI ---
+                thead.innerHTML = `
+                    <th class="py-3 px-4 w-20 text-center">次序/線道</th>
+                    <th class="py-3 px-4 w-24">號碼布</th>
+                    <th class="py-3 px-4 w-32">姓名</th>
+                    <th class="py-3 px-4 w-24">班別</th>
+                    <th class="py-3 px-4 w-32">狀態</th>
+                    <th class="py-3 px-4 w-48">成績</th>
+                    <th class="py-3 px-4 w-24">名次</th>
+                    <th class="py-3 px-4">備註</th>
+                `;
+                heatData.forEach((stu) => {
+                    if (stu.isEmpty) {
+                        html += `<tr class="border-b empty-lane"><td class="py-2 px-4 text-center font-bold text-xl">${stu.assignedLane}</td><td colspan="7" class="py-2 px-4 text-center">-- 空線道 --</td></tr>`;
+                    } else {
+                        const name = stu.nameZh || stu.nameEn || '';
+                        const cls = stu.classCode ? `${stu.classCode}(${stu.classNo||''})` : '';
+                        const placeholder = isField ? '例：1234 (即12.34m)' : '例：021651';
+                        const onInputAttr = isField ? 'oninput="formatDistanceInput(this)"' : 'oninput="formatTimeInput(this)"';
+
+                        html += `
+                            <tr id="row-${stu.assignedLane}" class="border-b active-lane hover:bg-blue-50" data-bib="${stu.bibNumber}">
+                                <td class="py-3 px-4 text-center font-bold text-xl">${stu.assignedLane}</td>
+                                <td class="py-3 px-4 font-bold text-lg">${stu.bibNumber}</td>
+                                <td class="py-3 px-4 font-bold">${name}</td>
+                                <td class="py-3 px-4">${cls}</td>
+                                <td class="py-3 px-4"><select class="status-select border rounded px-2 py-1 w-full" onchange="handleStatusChange(this, '${stu.assignedLane}')"><option value="正常">正常</option><option value="DNS">DNS</option><option value="DNF">DNF</option><option value="DQ">DQ</option></select></td>
+                                <td class="py-3 px-4"><input type="text" class="result-input border rounded px-3 py-1 w-full font-mono text-lg" placeholder="${placeholder}" ${onInputAttr}></td>
+                                <td class="py-3 px-4"><input type="number" class="rank-input border rounded px-3 py-1 w-full text-center font-bold" min="1" max="50"></td>
+                                <td class="py-3 px-4"><input type="text" class="remark-input border rounded px-3 py-1 w-full text-sm" placeholder="備註..."></td>
+                            </tr>
+                        `;
+                    }
+                });
+            }
             tbody.innerHTML = html;
 
-            try {
-                const docId = stage === '初賽' ? `${currentEventKey}_heat${heatIndex}` : `${currentEventKey}_final_results`;
-                const docSnap = await getDoc(doc(db, "results", docId));
-                if (docSnap.exists()) {
-                    docSnap.data().records.forEach(record => {
-                        const row = document.querySelector(`tr[data-bib="${record.bib}"]`);
-                        if (row) {
-                            row.querySelector('.status-select').value = record.status || '正常';
-                            row.querySelector('.result-input').value = record.resultStr || '';
-                            row.querySelector('.rank-input').value = record.rank || '';
-                            row.querySelector('.remark-input').value = record.remark || '';
-                            window.handleStatusChange(row.querySelector('.status-select'), record.lane);
-                        }
-                    });
-                }
-            } catch (e) {}
+            // 載入已儲存的成績 (僅在非編排模式下)
+            if (!window.isEditMode) {
+                try {
+                    const docId = stage === '初賽' ? `${currentEventKey}_heat${heatIndex}` : `${currentEventKey}_final_results`;
+                    const docSnap = await getDoc(doc(db, "results", docId));
+                    if (docSnap.exists()) {
+                        docSnap.data().records.forEach(record => {
+                            const row = document.querySelector(`tr[data-bib="${record.bib}"]`);
+                            if (row) {
+                                row.querySelector('.status-select').value = record.status || '正常';
+                                row.querySelector('.result-input').value = record.resultStr || '';
+                                row.querySelector('.rank-input').value = record.rank || '';
+                                row.querySelector('.remark-input').value = record.remark || '';
+                                window.handleStatusChange(row.querySelector('.status-select'), record.lane);
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }
         }
 
         window.handleStatusChange = function(selectElem, lane) {
             const row = document.getElementById(`row-${lane}`);
+            if(!row) return;
             const resultInput = row.querySelector('.result-input');
             const rankInput = row.querySelector('.rank-input');
             if (selectElem.value !== '正常') {
@@ -412,7 +558,6 @@
             }
         }
 
-        // 徑項時間格式化
         window.formatTimeInput = function(input) {
             let val = input.value.replace(/\D/g, '');
             if (val.length === 0) { input.value = ''; return; }
@@ -424,7 +569,6 @@
             input.value = formatted;
         }
 
-        // 田項距離格式化
         window.formatDistanceInput = function(input) {
             let rawVal = input.value.replace(/\D/g, '');
             if (rawVal.length === 0) { input.value = ''; return; }
@@ -439,7 +583,6 @@
             input.value = formatted;
         }
 
-        // 核心邏輯：核對名次與成績是否衝突，並檢查是否破紀錄
         function validateRecordsLogic(recordsArray, isField, eventKey) {
             let validRecords = recordsArray.filter(r => r.status === '正常' && r.resultStr && r.rank);
             if (validRecords.length === 0) return true;
@@ -458,7 +601,6 @@
 
             parsedRecords.sort((a, b) => a.rankInt - b.rankInt);
 
-            // 檢查名次與成績是否衝突
             if (parsedRecords.length > 1) {
                 for (let i = 0; i < parsedRecords.length - 1; i++) {
                     let current = parsedRecords[i];
@@ -486,7 +628,6 @@
                 }
             }
 
-            // 檢查是否破大會紀錄
             if (eventRecords[eventKey]) {
                 let bestRecord = parsedRecords[0];
                 let recordVal = eventRecords[eventKey];
@@ -500,7 +641,6 @@
                     alert(`🎉 破紀錄！\n\n號碼布 ${bestRecord.bib} 的成績 (${bestRecord.resultStr}) \n打破了 ${eventKey} 的大會紀錄！\n\n(原紀錄：${oldRec.record} - ${oldRec.holder} [${oldRec.year}])`);
                 }
             }
-            
             return true;
         }
 
@@ -527,9 +667,7 @@
                 recordsToSave.push({ lane, bib, status, resultStr, rank, remark });
             }
 
-            if (!validateRecordsLogic(recordsToSave, isField, currentEventKey)) {
-                return; 
-            }
+            if (!validateRecordsLogic(recordsToSave, isField, currentEventKey)) return; 
 
             const docId = stage === '初賽' ? `${currentEventKey}_heat${heatIndex}` : `${currentEventKey}_final_results`;
             try {
@@ -567,7 +705,7 @@
                 });
 
                 if(allValidRecords.length === 0) {
-                    return alert("找不到任何有效的初賽成績！\n\n請確認：\n1. 您是否已經輸入了成績？\n2. 輸入後是否已經點擊了綠色的「儲存本組成績」按鈕？\n（注意：每一組輸入完都必須先按儲存，系統才能進行結算）");
+                    return alert("找不到任何有效的初賽成績！\n請確認是否已輸入成績並點擊「儲存本組成績」。");
                 }
 
                 allValidRecords.sort((a, b) => a.timeMs - b.timeMs);
@@ -579,13 +717,30 @@
                 }
 
                 let finalRecords = top8.map((rec, index) => ({
-                    lane: laneOrder[index],
-                    bib: rec.bib,
-                    qualifyingTime: rec.resultStr
+                    lane: laneOrder[index], bib: rec.bib, qualifyingTime: rec.resultStr
                 }));
 
+                // 儲存決賽結果參照
                 await setDoc(doc(db, "results", `${currentEventKey}_final`), {
                     event: currentEventKey, stage: '決賽名單', updatedAt: new Date().toISOString(), records: finalRecords
+                });
+
+                // 核心修改 3：同步將決賽名單寫入 start_lists，讓文件生成系統能印出來
+                let finalStartList = top8.map((rec, index) => {
+                    let stu = globalStudentsData.find(s=>s.bibNumber===rec.bib) || {};
+                    return {
+                        assignedLane: laneOrder[index],
+                        bibNumber: rec.bib,
+                        nameZh: stu.nameZh || stu.nameEn || '',
+                        classCode: stu.classCode || '',
+                        isEmpty: false
+                    };
+                });
+                for(let i=finalStartList.length; i<8; i++) {
+                    finalStartList.push({ assignedLane: laneOrder[i], isEmpty: true });
+                }
+                await setDoc(doc(db, "start_lists", `${currentEventKey}_決賽`), {
+                    event: currentEventKey, stage: '決賽', heats: [finalStartList], updatedAt: new Date().toISOString()
                 });
 
                 alert("✅ 決賽名單產生成功！請將「比賽階段」切換至「決賽」查看。");
@@ -606,11 +761,8 @@
                 if (!docSnap.exists()) return alert("尚未輸入決賽成績！");
 
                 const records = docSnap.data().records.filter(r => r.rank && r.status === '正常');
-                
                 const isField = isFieldEvent(currentEventKey);
-                if (!validateRecordsLogic(records, isField, currentEventKey)) {
-                    return; 
-                }
+                if (!validateRecordsLogic(records, isField, currentEventKey)) return; 
 
                 records.sort((a, b) => parseInt(a.rank) - parseInt(b.rank));
 
