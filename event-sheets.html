@@ -20,7 +20,7 @@
             padding: 15mm;
             box-sizing: border-box;
             display: flex;
-            flex-direction: column; /* 使用 Flexbox 垂直排列 */
+            flex-direction: column;
         }
         
         /* 表格樣式 */
@@ -105,7 +105,7 @@
             
             <div class="mt-4 text-sm text-gray-500 bg-blue-50 p-3 rounded border border-blue-100">
                 <i class="fas fa-info-circle text-blue-600 mr-1"></i> 
-                <strong>提示：</strong> 系統會自動將選手進行<strong>隨機排序</strong>，以模擬真實抽籤編排線道與次序。當單組人數超過 20 人時會自動分頁。
+                <strong>提示：</strong> 系統會自動將選手依<strong>號碼布排序</strong>，以確保與成績系統資料同步。當單組人數超過 20 人時會自動分頁。
             </div>
         </div>
     </div>
@@ -152,16 +152,14 @@
         let globalStudentsData = [];
         let eventMap = new Map();
         let scheduleData = [];
-        let globalSchoolYear = ""; // 儲存從資料庫讀取到的學年
+        let globalSchoolYear = ""; 
 
         // 將數字年份轉換為中文 (例如: "2025-26" -> "二零二五")
         function getChineseYear(yearStr) {
-            // 如果沒有資料，預設使用當前年份
             let y = yearStr;
             if (!y) {
                 y = new Date().getFullYear().toString();
             }
-            // 擷取前四個數字 (例如 "2025-26" 擷取 "2025")
             const match = y.match(/^\d{4}/);
             const targetYear = match ? match[0] : new Date().getFullYear().toString();
             
@@ -169,7 +167,7 @@
             return targetYear.split('').map(d => zhMap[d]).join('');
         }
 
-        // 字串正規化函數 (確保賽程表與報名表的項目名稱能完美配對)
+        // 字串正規化函數
         const normalizeString = (str) => {
             if (!str) return '';
             let s = str.replace(/\s+/g, '').toUpperCase();
@@ -203,7 +201,6 @@
                     const student = doc.data();
                     globalStudentsData.push(student);
                     
-                    // 抓取學年資料 (如果還沒設定的話)
                     if (!globalSchoolYear && student.schoolYear) {
                         globalSchoolYear = student.schoolYear;
                     }
@@ -316,14 +313,15 @@
             const container = document.getElementById('pages-container');
             container.innerHTML = ''; 
 
-            // 複製一份陣列，避免修改到原始資料庫快取
-            let students = [...(eventMap.get(matchKey) || [])];
+            let rawStudents = eventMap.get(matchKey) || [];
             
-            // 使用 Fisher-Yates 演算法進行隨機打亂 (Random Shuffle)
-            for (let i = students.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [students[i], students[j]] = [students[j], students[i]]; // 交換位置
-            }
+            // ✅ 核心修正：取消隨機打亂，改為依據號碼布進行固定排序
+            // 確保每次生成的線道都一模一樣，並與成績輸入系統完全同步
+            let students = [...rawStudents].sort((a, b) => {
+                const bibA = a.bibNumber || '';
+                const bibB = b.bibNumber || '';
+                return bibA.localeCompare(bibB);
+            });
 
             const isField = isFieldEvent(eventName);
             const isLongDist = isLongDistance(eventName);
@@ -451,7 +449,6 @@
             const heatDisplay = heatName ? ` - ${heatName}` : '';
             const pageIndicator = totalPages > 1 ? `<span class="text-base ml-2 text-gray-600 font-normal">(第 ${currentPage}/${totalPages} 頁)</span>` : '';
 
-            // 取得中文年份 (例如 "二零二五")
             const zhYear = getChineseYear(globalSchoolYear);
 
             let tableHeaders = "";
@@ -505,7 +502,6 @@
                         <!-- 頁首 -->
                         <div class="text-center mb-6">
                             <h1 class="text-2xl font-bold tracking-widest mb-1">獻主會聖母院書院</h1>
-                            <!-- 動態替換年份 -->
                             <h2 class="text-xl font-bold tracking-wider mb-4">${zhYear}年度陸運會</h2>
                             
                             <div class="flex justify-between items-end border-b-2 border-black pb-2">
