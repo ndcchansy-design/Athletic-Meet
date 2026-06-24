@@ -62,20 +62,21 @@
         <div id="pages-container"></div>
     </div>
 
+    <!-- 將所有邏輯整合在同一個 module 中 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = { apiKey: "AIzaSyB6N110dVd8_T9tygXEApjTPsQC5HsF0IQ", authDomain: "athletic-meet-85936.firebaseapp.com", projectId: "athletic-meet-85936" };
-        let app, db;
+        
+        let db;
         try {
-            app = initializeApp(firebaseConfig); db = getFirestore(app);
-            window.db = db; window.getDocs = getDocs; window.collection = collection; window.doc = doc; window.getDoc = getDoc;
-            fetchAllData(); 
-        } catch (error) { console.error(error); }
-    </script>
+            const app = initializeApp(firebaseConfig); 
+            db = getFirestore(app);
+        } catch (error) { 
+            console.error("Firebase 初始化失敗", error); 
+        }
 
-    <script>
         let globalStudentsData = [];
         let eventMap = new Map();
         let scheduleData = [];
@@ -93,24 +94,33 @@
         const isLongDistance = (eventName) => eventName.toUpperCase().includes('800M') || eventName.toUpperCase().includes('1500M');
 
         async function fetchAllData() {
-            const studentSnap = await window.getDocs(window.collection(window.db, "students"));
-            studentSnap.forEach((doc) => {
-                const student = doc.data();
-                globalStudentsData.push(student);
-                if (!globalSchoolYear && student.schoolYear) globalSchoolYear = student.schoolYear;
-                if (student.registeredEvents) {
-                    student.registeredEvents.forEach(ev => {
-                        const normalizedEv = normalizeString(ev);
-                        if (!eventMap.has(normalizedEv)) eventMap.set(normalizedEv, []);
-                        eventMap.get(normalizedEv).push(student);
-                    });
-                }
-            });
+            if (!db) return;
+            try {
+                const studentSnap = await getDocs(collection(db, "students"));
+                studentSnap.forEach((doc) => {
+                    const student = doc.data();
+                    globalStudentsData.push(student);
+                    if (!globalSchoolYear && student.schoolYear) globalSchoolYear = student.schoolYear;
+                    if (student.registeredEvents) {
+                        student.registeredEvents.forEach(ev => {
+                            const normalizedEv = normalizeString(ev);
+                            if (!eventMap.has(normalizedEv)) eventMap.set(normalizedEv, []);
+                            eventMap.get(normalizedEv).push(student);
+                        });
+                    }
+                });
+            } catch (e) {
+                console.error("讀取學生資料失敗", e);
+                document.getElementById('event-select').innerHTML = '<option value="">讀取資料失敗，請檢查權限</option>';
+                return;
+            }
 
             try {
-                const scheduleSnap = await window.getDocs(window.collection(window.db, "schedule"));
+                const scheduleSnap = await getDocs(collection(db, "schedule"));
                 scheduleSnap.forEach(doc => scheduleData.push({ id: doc.id, ...doc.data() }));
-            } catch (e) {}
+            } catch (e) {
+                console.warn("未能讀取 schedule，使用備用模式。");
+            }
             populateDropdown();
         }
 
@@ -118,21 +128,43 @@
             const select = document.getElementById('event-select');
             select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
             
-            scheduleData.sort((a, b) => (parseInt(a['項目'] || a.itemNo) || 0) - (parseInt(b['項目'] || b.itemNo) || 0));
+            let hasOptions = false;
 
-            scheduleData.forEach(item => {
-                const itemNo = item['項目'] || item.itemNo || '';
-                const time = item['時間'] || item.time || '';
-                const group = item['女子組'] || item['男子組'] || '';
-                const event = item['徑項'] || item['田項'] || '';
-                const stage = (item['初賽'] || item.heats) ? '初賽' : '決賽';
-                
-                const fullEventName = `${group} ${event}`.trim();
-                if (fullEventName) {
-                    const matchKey = normalizeString(`${group}${event}`);
-                    select.innerHTML += `<option value="${fullEventName}" data-matchkey="${matchKey}" data-itemno="${itemNo}" data-stage="${stage}" data-time="${time}">【${itemNo || '未編號'}】 ${time} - ${fullEventName} (${stage})</option>`;
+            if (scheduleData.length > 0) {
+                scheduleData.sort((a, b) => (parseInt(a['項目'] || a.itemNo || a.id) || 0) - (parseInt(b['項目'] || b.itemNo || b.id) || 0));
+
+                scheduleData.forEach(item => {
+                    const itemNo = item['項目'] || item.itemNo || item.id || '';
+                    const time = item['時間'] || item.time || '';
+                    const group = item['女子組'] || item['男子組'] || item.girlsGroup || item.boysGroup || '';
+                    const event = item['徑項'] || item['田項'] || item.trackEvent || item.fieldEvent || '';
+                    const stage = (item['初賽'] || item.heats) ? '初賽' : '決賽';
+                    
+                    const fullEventName = `${group} ${event}`.trim();
+                    if (fullEventName) {
+                        const format1 = normalizeString(`${event}${group}`);
+                        const format2 = normalizeString(`${group}${event}`);
+                        let matchKey = format1;
+                        if (eventMap.has(format2)) matchKey = format2;
+
+                        select.innerHTML += `<option value="${fullEventName}" data-matchkey="${matchKey}" data-itemno="${itemNo}" data-stage="${stage}" data-time="${time}">【${itemNo || '未編號'}】 ${time} - ${fullEventName} (${stage})</option>`;
+                        hasOptions = true;
+                    }
+                });
+            }
+
+            // 如果賽程表無資料，使用備用模式
+            if (!hasOptions) {
+                const sortedEvents = Array.from(eventMap.keys()).sort();
+                if (sortedEvents.length === 0) {
+                    select.innerHTML = '<option value="">資料庫中目前沒有報名資料</option>';
+                    return;
                 }
-            });
+                sortedEvents.forEach(ev => {
+                    const count = eventMap.get(ev).length;
+                    select.innerHTML += `<option value="${ev}" data-matchkey="${ev}" data-itemno="" data-stage="初賽" data-time="">${ev} (共 ${count} 人)</option>`;
+                });
+            }
 
             select.addEventListener('change', function() {
                 const stage = this.options[this.selectedIndex].getAttribute('data-stage');
@@ -161,12 +193,9 @@
             const isLongDist = isLongDistance(eventName);
             let heats = []; 
 
-            // ==========================================
-            // 新功能 3：若是決賽，自動抓取決賽名單
-            // ==========================================
             if (stage === "決賽" && !isField && !isLongDist) {
                 try {
-                    const docSnap = await window.getDoc(window.doc(window.db, "results", `${matchKey}_final`));
+                    const docSnap = await getDoc(doc(db, "results", `${matchKey}_final`));
                     let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
                     
                     if (docSnap.exists()) {
@@ -299,6 +328,9 @@
                 btn.innerHTML = '<i class="fas fa-file-pdf mr-2"></i> 匯出 A4 PDF';
             });
         }
+
+        // 啟動讀取
+        fetchAllData();
     </script>
 </body>
 </html>
