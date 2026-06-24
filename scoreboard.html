@@ -8,13 +8,10 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background-color: #0f172a; color: white; overflow: hidden; }
-        .view-container { transition: opacity 0.8s ease-in-out, transform 0.8s ease-in-out; position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 1.5rem; box-sizing: border-box; }
+        .view-container { transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out; position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 1.5rem; box-sizing: border-box; }
         .fade-out { opacity: 0; transform: scale(0.98); pointer-events: none; z-index: 0; }
         .fade-in { opacity: 1; transform: scale(1); z-index: 10; }
-        .progress-bar { transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        
-        /* 隱藏滾動條但保留滾動功能 */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
     </style>
 </head>
@@ -32,17 +29,23 @@
             </div>
         </div>
         
-        <div class="flex items-center gap-6">
-            <div id="status-indicator" class="text-sm font-bold px-3 py-1 rounded bg-yellow-600 text-white flex items-center">
+        <div class="flex items-center gap-4">
+            <!-- 測試模式切換按鈕 -->
+            <button id="btn-toggle-mock" onclick="toggleMockMode()" class="px-3 py-1.5 rounded text-sm font-bold bg-purple-600 hover:bg-purple-500 text-white transition-colors flex items-center gap-2 shadow-lg">
+                <i class="fas fa-vial"></i> <span id="mock-btn-text">使用測試數據中</span>
+            </button>
+
+            <div id="status-indicator" class="text-sm font-bold px-3 py-1.5 rounded bg-yellow-600 text-white flex items-center shadow-lg">
                 <i class="fas fa-sync fa-spin mr-2"></i> 載入資料中...
             </div>
             
-            <div class="flex bg-slate-900 rounded-full p-1 border border-slate-700">
-                <div id="tab-class" class="px-4 py-1.5 rounded-full text-sm font-bold bg-blue-600 text-white transition-colors">各班總分</div>
-                <div id="tab-champ" class="px-4 py-1.5 rounded-full text-sm font-bold text-slate-400 transition-colors">最佳運動員</div>
+            <!-- 手動切換視圖按鈕 -->
+            <div class="flex bg-slate-900 rounded-full p-1 border border-slate-700 shadow-inner">
+                <button id="tab-class" onclick="switchTabs('CLASS')" class="px-6 py-1.5 rounded-full text-sm font-bold bg-blue-600 text-white transition-colors cursor-pointer">各班總分</button>
+                <button id="tab-champ" onclick="switchTabs('CHAMP')" class="px-6 py-1.5 rounded-full text-sm font-bold text-slate-400 hover:text-white transition-colors cursor-pointer">最佳運動員</button>
             </div>
             
-            <div class="flex items-center gap-2 text-2xl font-mono bg-slate-900 px-4 py-2 rounded-lg border border-slate-700 shadow-inner text-blue-300">
+            <div class="flex items-center gap-2 text-xl font-mono bg-slate-900 px-4 py-1.5 rounded-lg border border-slate-700 shadow-inner text-blue-300">
                 <i class="far fa-clock"></i>
                 <span id="clock">00:00:00</span>
             </div>
@@ -53,24 +56,29 @@
     <main class="flex-1 relative overflow-hidden">
         
         <!-- 視圖 1: 各班總分 -->
-        <div id="view-class" class="view-container fade-in flex flex-col max-w-7xl mx-auto">
-            <div class="flex items-center justify-center gap-4 mb-6 shrink-0">
-                <i class="fas fa-trophy text-4xl text-yellow-400"></i>
-                <h2 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-200 tracking-wider">
-                    全校各班總分排行榜
-                </h2>
-                <i class="fas fa-trophy text-4xl text-yellow-400"></i>
+        <div id="view-class" class="view-container fade-in flex flex-col max-w-5xl mx-auto">
+            <div class="flex flex-col items-center justify-center gap-2 mb-4 shrink-0">
+                <div class="flex items-center gap-4">
+                    <i class="fas fa-trophy text-3xl text-yellow-400"></i>
+                    <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-200 tracking-wider">
+                        各班總分排行榜
+                    </h2>
+                    <i class="fas fa-trophy text-3xl text-yellow-400"></i>
+                </div>
+                
+                <!-- 級別篩選器 -->
+                <div class="flex gap-2 mt-2 bg-slate-800 p-1.5 rounded-lg border border-slate-700">
+                    <button onclick="setFormFilter('ALL')" id="filter-ALL" class="filter-btn px-4 py-1 rounded-md text-sm font-bold bg-blue-500 text-white transition-colors">全校排名</button>
+                    <button onclick="setFormFilter('1')" id="filter-1" class="filter-btn px-4 py-1 rounded-md text-sm font-bold text-slate-400 hover:bg-slate-700 transition-colors">中一</button>
+                    <button onclick="setFormFilter('2')" id="filter-2" class="filter-btn px-4 py-1 rounded-md text-sm font-bold text-slate-400 hover:bg-slate-700 transition-colors">中二</button>
+                    <button onclick="setFormFilter('3')" id="filter-3" class="filter-btn px-4 py-1 rounded-md text-sm font-bold text-slate-400 hover:bg-slate-700 transition-colors">中三</button>
+                    <button onclick="setFormFilter('4')" id="filter-4" class="filter-btn px-4 py-1 rounded-md text-sm font-bold text-slate-400 hover:bg-slate-700 transition-colors">中四</button>
+                    <button onclick="setFormFilter('5')" id="filter-5" class="filter-btn px-4 py-1 rounded-md text-sm font-bold text-slate-400 hover:bg-slate-700 transition-colors">中五</button>
+                    <button onclick="setFormFilter('6')" id="filter-6" class="filter-btn px-4 py-1 rounded-md text-sm font-bold text-slate-400 hover:bg-slate-700 transition-colors">中六</button>
+                </div>
             </div>
 
-            <div class="flex text-slate-400 font-bold text-sm px-4 pb-2 border-b border-slate-700 shrink-0">
-                <div class="w-16 text-center">排名</div>
-                <div class="w-24 text-center">班別</div>
-                <div class="flex-1 px-4">積分進度</div>
-                <div class="w-40 text-right">個人均分 + 接力</div>
-                <div class="w-32 text-right text-yellow-400 text-lg">總得分</div>
-            </div>
-
-            <div id="class-list-container" class="flex-1 overflow-y-auto flex flex-col gap-3 pt-3 pb-10">
+            <div id="class-list-container" class="flex-1 overflow-y-auto flex flex-col gap-3 pt-2 pb-10">
                 <!-- 動態生成 -->
             </div>
         </div>
@@ -128,20 +136,60 @@
         let db;
         let studentsData = [];
         let resultsData = [];
+        let globalClassScores = []; // 儲存計算後的班級成績以便篩選
         
+        // 狀態控制
+        window.useMockData = true; // 預設開啟測試模式
+        window.currentFormFilter = 'ALL';
+
         // 計分設定
         const RANK_POINTS = { 1: 9, 2: 7, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1 };
         const PART_POINT = 1;
         const ABSENT_PENALTY = -1;
         const HELPER_POINT = 2;
 
+        // --- 測試數據 (Sample Data) ---
+        const mockStudents = [
+            { bibNumber: "1A01", nameZh: "陳大文", classCode: "1A", gender: "M", dob: "2012-01-01" }, // 甲組, 冠軍
+            { bibNumber: "1A02", nameZh: "李小明", classCode: "1A", gender: "M", dob: "2012-01-01", helperRole: "計時員" }, // 工作人員
+            { bibNumber: "1A03", nameZh: "張三", classCode: "1A", gender: "M", dob: "2012-01-01" }, // DNS
+            { bibNumber: "1B01", nameZh: "王美麗", classCode: "1B", gender: "F", dob: "2012-01-01" }, // 亞軍
+            { bibNumber: "1B02", nameZh: "何小花", classCode: "1B", gender: "F", dob: "2012-01-01" },
+            { bibNumber: "2A01", nameZh: "劉德華", classCode: "2A", gender: "M", dob: "2011-01-01" }, // 乙組
+            { bibNumber: "2A02", nameZh: "郭富城", classCode: "2A", gender: "M", dob: "2011-01-01" },
+            { bibNumber: "6A01", nameZh: "張學友", classCode: "6A", gender: "M", dob: "2007-01-01" }  // 甲組
+        ];
+
+        const mockResults = [
+            {
+                id: "event_1_final", stage: "決賽", event: "男子100米 決賽",
+                records: [
+                    { bib: "1A01", status: "正常", rank: "1" }, // 9分 + 1參與
+                    { bib: "2A01", status: "正常", rank: "2" }, // 7分 + 1參與
+                    { bib: "1A03", status: "DNS" }              // -1分
+                ]
+            },
+            {
+                id: "event_2_final", stage: "決賽", event: "女子100米 決賽",
+                records: [
+                    { bib: "1B01", status: "正常", rank: "2" }  // 7分 + 1參與
+                ]
+            },
+            {
+                id: "event_3_final", stage: "決賽", event: "男子4x100米接力 決賽",
+                records: [
+                    { bib: "1A", status: "正常", rank: "1" }    // 接力 9分 * 2 = 18分
+                ]
+            }
+        ];
+        // -----------------------------
+
+        // 初始化
         try {
             const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
-            initDataFetch();
+            loadData();
         } catch (error) {
-            document.getElementById('status-indicator').innerHTML = '<i class="fas fa-times-circle mr-2"></i> 連線失敗';
-            document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1 rounded bg-red-600 text-white flex items-center';
             console.error("Firebase 初始化失敗", error);
         }
 
@@ -150,53 +198,90 @@
             document.getElementById('clock').innerText = new Date().toLocaleTimeString('zh-HK', { hour12: false });
         }, 1000);
 
-        // 視圖輪播邏輯
-        let currentView = 'CLASS';
-        setInterval(() => {
+        // 手動切換視圖 (取代原本的 setInterval)
+        window.switchTabs = function(view) {
             const viewClass = document.getElementById('view-class');
             const viewChamp = document.getElementById('view-champ');
             const tabClass = document.getElementById('tab-class');
             const tabChamp = document.getElementById('tab-champ');
 
-            if (currentView === 'CLASS') {
+            if (view === 'CHAMP') {
                 viewClass.classList.replace('fade-in', 'fade-out');
                 viewChamp.classList.replace('fade-out', 'fade-in');
-                tabClass.className = 'px-4 py-1.5 rounded-full text-sm font-bold text-slate-400 transition-colors';
-                tabChamp.className = 'px-4 py-1.5 rounded-full text-sm font-bold bg-yellow-600 text-white transition-colors';
-                currentView = 'CHAMP';
+                tabClass.className = 'px-6 py-1.5 rounded-full text-sm font-bold text-slate-400 hover:text-white transition-colors cursor-pointer';
+                tabChamp.className = 'px-6 py-1.5 rounded-full text-sm font-bold bg-yellow-600 text-white transition-colors cursor-pointer shadow-md';
             } else {
                 viewChamp.classList.replace('fade-in', 'fade-out');
                 viewClass.classList.replace('fade-out', 'fade-in');
-                tabChamp.className = 'px-4 py-1.5 rounded-full text-sm font-bold text-slate-400 transition-colors';
-                tabClass.className = 'px-4 py-1.5 rounded-full text-sm font-bold bg-blue-600 text-white transition-colors';
-                currentView = 'CLASS';
+                tabChamp.className = 'px-6 py-1.5 rounded-full text-sm font-bold text-slate-400 hover:text-white transition-colors cursor-pointer';
+                tabClass.className = 'px-6 py-1.5 rounded-full text-sm font-bold bg-blue-600 text-white transition-colors cursor-pointer shadow-md';
             }
-        }, 15000); // 每 15 秒切換一次
+        };
 
-        async function initDataFetch() {
-            try {
-                // 1. 讀取學生資料 (一次性讀取)
-                const studentSnap = await getDocs(collection(db, "students"));
-                studentsData = [];
-                studentSnap.forEach(doc => studentsData.push(doc.data()));
+        // 切換測試/真實數據
+        window.toggleMockMode = function() {
+            window.useMockData = !window.useMockData;
+            const btn = document.getElementById('btn-toggle-mock');
+            const btnText = document.getElementById('mock-btn-text');
+            
+            if (window.useMockData) {
+                btn.className = "px-3 py-1.5 rounded text-sm font-bold bg-purple-600 hover:bg-purple-500 text-white transition-colors flex items-center gap-2 shadow-lg";
+                btnText.innerText = "使用測試數據中";
+            } else {
+                btn.className = "px-3 py-1.5 rounded text-sm font-bold bg-slate-600 hover:bg-slate-500 text-white transition-colors flex items-center gap-2 shadow-lg";
+                btnText.innerText = "切換為真實數據";
+            }
+            loadData();
+        };
 
-                // 2. 監聽成績資料 (即時更新)
-                onSnapshot(collection(db, "results"), (snapshot) => {
-                    resultsData = [];
-                    snapshot.forEach(doc => resultsData.push({ id: doc.id, ...doc.data() }));
-                    
-                    document.getElementById('status-indicator').innerHTML = '<i class="fas fa-check-circle mr-2"></i> 即時更新中';
-                    document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1 rounded bg-green-600 text-white flex items-center';
-                    
-                    calculateAndRender();
-                });
+        // 級別篩選器
+        window.setFormFilter = function(form) {
+            window.currentFormFilter = form;
+            
+            // 更新按鈕樣式
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.className = 'filter-btn px-4 py-1 rounded-md text-sm font-bold text-slate-400 hover:bg-slate-700 transition-colors';
+            });
+            const activeBtn = document.getElementById(`filter-${form}`);
+            activeBtn.className = 'filter-btn px-4 py-1 rounded-md text-sm font-bold bg-blue-500 text-white transition-colors shadow-md';
+            
+            // 重新渲染班級列表
+            renderClassScores(globalClassScores);
+        };
 
-            } catch (error) {
-                console.error("讀取資料失敗", error);
+        async function loadData() {
+            document.getElementById('status-indicator').innerHTML = '<i class="fas fa-sync fa-spin mr-2"></i> 載入資料中...';
+            document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1.5 rounded bg-yellow-600 text-white flex items-center shadow-lg';
+
+            if (window.useMockData) {
+                studentsData = [...mockStudents];
+                resultsData = [...mockResults];
+                calculateAndRender();
+                document.getElementById('status-indicator').innerHTML = '<i class="fas fa-check-circle mr-2"></i> 測試模式就緒';
+                document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1.5 rounded bg-purple-600 text-white flex items-center shadow-lg';
+            } else {
+                try {
+                    const studentSnap = await getDocs(collection(db, "students"));
+                    studentsData = [];
+                    studentSnap.forEach(doc => studentsData.push(doc.data()));
+
+                    onSnapshot(collection(db, "results"), (snapshot) => {
+                        if(window.useMockData) return; // 避免切換回測試模式時被覆蓋
+                        resultsData = [];
+                        snapshot.forEach(doc => resultsData.push({ id: doc.id, ...doc.data() }));
+                        
+                        document.getElementById('status-indicator').innerHTML = '<i class="fas fa-check-circle mr-2"></i> 即時更新中';
+                        document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1.5 rounded bg-green-600 text-white flex items-center shadow-lg';
+                        
+                        calculateAndRender();
+                    });
+                } catch (error) {
+                    document.getElementById('status-indicator').innerHTML = '<i class="fas fa-times-circle mr-2"></i> 連線失敗';
+                    document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1.5 rounded bg-red-600 text-white flex items-center shadow-lg';
+                }
             }
         }
 
-        // 判斷組別 (與您系統邏輯一致)
         function getStudentGrade(student) {
             let year = 0;
             if (student.dob) {
@@ -223,7 +308,6 @@
             let classStats = {}; 
             let athleteStats = {};
 
-            // 初始化學生與班級數據
             studentsData.forEach(s => {
                 if (!s.classCode) return;
                 
@@ -243,10 +327,8 @@
                 };
             });
 
-            // 處理成績數據
             resultsData.forEach(resultDoc => {
                 if (!resultDoc.records) return;
-                
                 const isFinal = resultDoc.stage === '決賽' || resultDoc.id.includes('_final_results');
                 const isRelay = resultDoc.event && resultDoc.event.includes('接力');
 
@@ -254,33 +336,27 @@
                     if (rec.status === 'DNS') {
                         if (athleteStats[rec.bib]) athleteStats[rec.bib].dnsCount++;
                     } else if (rec.status === '正常') {
-                        // 記錄參與項目 (初賽決賽同項只算一次)
                         if (athleteStats[rec.bib]) {
-                            // 移除 "初賽/決賽" 字眼以確保同項合併
                             let baseEvent = resultDoc.event.replace('初賽', '').replace('決賽', '').trim();
                             athleteStats[rec.bib].participations.add(baseEvent);
                         }
 
-                        // 計算名次分 (只算決賽)
                         if (isFinal && rec.rank) {
                             let rank = parseInt(rec.rank);
                             let pts = RANK_POINTS[rank] || 0;
 
                             if (isRelay) {
-                                // 接力賽：嘗試從號碼布提取班別 (例如 4A接力 -> 4A)
                                 let clsMatch = rec.bib.match(/^([1-6][A-Z])/i);
                                 let cls = clsMatch ? clsMatch[1].toUpperCase() : null;
                                 if (!cls && athleteStats[rec.bib]) cls = athleteStats[rec.bib].classCode;
 
                                 if (cls && classStats[cls]) {
-                                    classStats[cls].relayTotal += (pts * 2); // 接力雙倍
+                                    classStats[cls].relayTotal += (pts * 2);
                                 }
                             } else {
-                                // 個人賽
                                 if (athleteStats[rec.bib]) {
                                     athleteStats[rec.bib].score += pts;
                                     if (rank === 1) athleteStats[rec.bib].golds++;
-                                    
                                     let rankStr = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : `第${rank}`));
                                     athleteStats[rec.bib].details.push(`${resultDoc.event.split(' ').pop()} ${rankStr}`);
                                 }
@@ -290,7 +366,6 @@
                 });
             });
 
-            // 結算個人總分並加總至班級
             Object.values(athleteStats).forEach(ath => {
                 let indPts = ath.score;
                 let partPts = ath.participations.size * PART_POINT;
@@ -304,23 +379,14 @@
                 }
             });
 
-            // 產生班級排行榜陣列
-            let finalClassScores = Object.keys(classStats).map(cls => {
+            globalClassScores = Object.keys(classStats).map(cls => {
                 let stats = classStats[cls];
                 if (stats.size === 0) return null;
-                
                 let avgInd = stats.indTotal / stats.size;
                 let total = avgInd + stats.relayTotal;
-                
-                return { 
-                    className: cls, 
-                    avgInd: avgInd, 
-                    relay: stats.relayTotal, 
-                    total: total 
-                };
+                return { className: cls, avgInd: avgInd, relay: stats.relayTotal, total: total };
             }).filter(c => c !== null).sort((a, b) => b.total - a.total);
 
-            // 產生最佳運動員陣列 (排除 0 分者，依分數 > 金牌數排序)
             let sortedAthletes = Object.values(athleteStats)
                 .filter(a => a.score > 0) 
                 .sort((a, b) => b.score !== a.score ? b.score - a.score : b.golds - a.golds);
@@ -332,8 +398,7 @@
                 }
             });
 
-            // 渲染畫面
-            renderClassScores(finalClassScores);
+            renderClassScores(globalClassScores);
             renderChampions(champions);
         }
 
@@ -341,66 +406,62 @@
             const container = document.getElementById('class-list-container');
             container.innerHTML = '';
             
-            if (scores.length === 0) {
-                container.innerHTML = '<div class="text-center text-slate-500 py-10">尚無成績資料</div>';
+            // 套用級別篩選
+            let filteredScores = scores;
+            if (window.currentFormFilter !== 'ALL') {
+                filteredScores = scores.filter(s => s.className.startsWith(window.currentFormFilter));
+            }
+
+            if (filteredScores.length === 0) {
+                container.innerHTML = `<div class="text-center text-slate-500 py-10">此級別尚無成績資料</div>`;
                 return;
             }
 
-            const maxScore = Math.max(...scores.map(s => s.total), 1); // 避免除以 0
-
-            scores.forEach((cls, index) => {
-                let medalHtml = `<span class="text-xl font-bold text-slate-500">${index + 1}</span>`;
-                let barColor = 'from-blue-800 to-blue-500';
+            filteredScores.forEach((cls, index) => {
+                let medalHtml = `<span class="text-2xl font-bold text-slate-500">${index + 1}</span>`;
                 let totalColor = 'text-white';
 
                 if (index === 0) {
-                    medalHtml = `<i class="fas fa-medal text-3xl text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]"></i>`;
-                    barColor = 'from-yellow-600 to-yellow-400';
+                    medalHtml = `<i class="fas fa-medal text-4xl text-yellow-400 drop-shadow-md"></i>`;
                     totalColor = 'text-yellow-400';
                 } else if (index === 1) {
-                    medalHtml = `<i class="fas fa-medal text-3xl text-slate-300"></i>`;
-                    barColor = 'from-slate-500 to-slate-300';
+                    medalHtml = `<i class="fas fa-medal text-4xl text-slate-300"></i>`;
                     totalColor = 'text-slate-200';
                 } else if (index === 2) {
-                    medalHtml = `<i class="fas fa-medal text-3xl text-amber-600"></i>`;
-                    barColor = 'from-amber-700 to-amber-500';
+                    medalHtml = `<i class="fas fa-medal text-4xl text-amber-600"></i>`;
                     totalColor = 'text-amber-500';
                 }
 
-                const widthPercentage = (cls.total / maxScore) * 100;
-
+                // 移除 Bar Chart，改用更清晰的數據塊佈局
                 container.innerHTML += `
-                    <div class="flex items-center glass-panel rounded-xl p-3 hover:bg-slate-800/80 transition-colors">
+                    <div class="flex items-center glass-panel rounded-xl p-4 hover:bg-slate-800 transition-colors border-l-4 ${index === 0 ? 'border-yellow-400' : 'border-transparent'}">
                         <div class="w-16 flex justify-center">${medalHtml}</div>
                         
-                        <div class="w-24 flex justify-center">
-                            <span class="text-2xl font-black text-white bg-slate-700/80 px-3 py-1 rounded-lg border border-slate-600">
+                        <div class="w-28 flex justify-center">
+                            <span class="text-3xl font-black text-white bg-slate-700 px-4 py-1.5 rounded-lg border border-slate-600 shadow-inner">
                                 ${cls.className}
                             </span>
                         </div>
 
-                        <div class="flex-1 px-4 relative h-8 bg-slate-900/80 rounded-full overflow-hidden border border-slate-700">
-                            <div class="progress-bar absolute top-0 left-0 h-full rounded-full bg-gradient-to-r ${barColor}" style="width: 0%" data-width="${widthPercentage}%"></div>
+                        <div class="flex-1 px-8 flex items-center justify-center gap-8">
+                            <div class="text-center bg-slate-800/50 px-6 py-2 rounded-lg">
+                                <div class="text-2xl font-mono text-blue-300">${cls.avgInd.toFixed(2)}</div>
+                                <div class="text-xs text-slate-400 mt-1">個人均分</div>
+                            </div>
+                            <div class="text-slate-600 text-2xl font-black">+</div>
+                            <div class="text-center bg-slate-800/50 px-6 py-2 rounded-lg">
+                                <div class="text-2xl font-mono text-green-400">${cls.relay}</div>
+                                <div class="text-xs text-slate-400 mt-1">接力得分</div>
+                            </div>
                         </div>
 
-                        <div class="w-40 text-right text-slate-400 font-mono text-sm">
-                            ${cls.avgInd.toFixed(1)} <span class="text-xs text-slate-500 mr-1">均分</span> 
-                            <span class="text-green-400">+${cls.relay}</span> <span class="text-xs text-slate-500">接力</span>
-                        </div>
-
-                        <div class="w-32 text-right">
-                            <span class="text-3xl font-black font-mono ${totalColor}">${cls.total.toFixed(1)}</span>
+                        <div class="w-40 text-right bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700">
+                            <div class="text-4xl font-black font-mono ${totalColor}">${cls.total.toFixed(2)}</div>
+                            <div class="text-xs text-slate-500 mt-1">班級總得分</div>
                         </div>
                     </div>
                 `;
             });
-
-            // 觸發進度條動畫
-            setTimeout(() => {
-                document.querySelectorAll('.progress-bar').forEach(bar => {
-                    bar.style.width = bar.getAttribute('data-width');
-                });
-            }, 100);
         }
 
         function renderChampions(champions) {
@@ -414,7 +475,7 @@
                     html += `<div class="text-center text-slate-500 text-sm py-4">尚無成績</div>`;
                 } else {
                     athletes.forEach((ath, idx) => {
-                        let medalColor = idx === 0 ? 'text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]' : (idx === 1 ? 'text-slate-300' : 'text-amber-600');
+                        let medalColor = idx === 0 ? 'text-yellow-400 drop-shadow-md' : (idx === 1 ? 'text-slate-300' : 'text-amber-600');
                         html += `
                             <div class="flex items-center bg-slate-800/60 rounded-lg p-3 relative overflow-hidden">
                                 <div class="absolute -left-2 -top-4 text-6xl font-black text-slate-700/30 italic pointer-events-none">${idx + 1}</div>
@@ -428,7 +489,7 @@
                                 </div>
                                 <div class="text-right z-10">
                                     <div class="text-2xl font-black text-yellow-400 font-mono">${ath.score}</div>
-                                    <div class="text-[10px] text-slate-500">名次積分</div>
+                                    <div class="text-xs text-slate-500">名次積分</div>
                                 </div>
                             </div>
                         `;
