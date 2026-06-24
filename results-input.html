@@ -72,7 +72,7 @@
 
         <div class="bg-white rounded-lg shadow-md overflow-hidden">
             <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <h2 id="table-title" class="text-xl font-bold text-gray-800">請選擇比賽項目與組別</h2>
+                <h2 id="table-title" class="text-xl font-bold text-gray-800 flex items-center flex-wrap gap-2">請選擇比賽項目與組別</h2>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
@@ -140,12 +140,10 @@
             document.getElementById('status-indicator').className = 'text-sm font-bold px-3 py-1 rounded bg-red-600';
         }
 
-        // ================= 大會紀錄設定區 =================
-        const eventRecords = {
-            // "男甲100米": 11200, // 範例：11.20s
-            // "女甲跳遠": 450,    // 範例：4.50m
-        };
-        // ==================================================
+        // ================= 大會紀錄變數 =================
+        let eventRecords = {};     // 存放轉換後的數值，用於程式比對 (例如 11560)
+        let rawEventRecords = {};  // 存放原始文字資料，用於介面顯示
+        // ================================================
 
         let globalStudentsData = [];
         let eventMap = new Map();
@@ -159,6 +157,35 @@
 
         async function fetchAllData() {
             if (!db) return;
+
+            // 1. 讀取歷屆紀錄
+            try {
+                const recordsSnap = await getDoc(doc(db, "settings", "records"));
+                if (recordsSnap.exists()) {
+                    const data = recordsSnap.data();
+                    for (let key in data) {
+                        let recStr = data[key].record;
+                        let normalizedKey = normalizeString(key);
+                        rawEventRecords[normalizedKey] = data[key]; // 儲存原始資料供顯示
+                        
+                        // 將紀錄字串轉換為數值以便比對
+                        let val = 0;
+                        const isField = isFieldEvent(key);
+                        if (isField) {
+                            const match = recStr.match(/(\d+)\.(\d+)/); // 擷取數字部分
+                            if (match) val = parseInt(match[1]) * 100 + parseInt(match[2]); 
+                        } else {
+                            const match = recStr.match(/(?:(\d+)\s*m\s*)?(\d+)\.(\d+)/);
+                            if (match) val = (parseInt(match[1]||0) * 60000) + (parseInt(match[2]) * 1000) + (parseInt(match[3]) * 10); 
+                        }
+                        if (val > 0) eventRecords[normalizedKey] = val;
+                    }
+                }
+            } catch (e) {
+                console.error("讀取歷屆紀錄失敗", e);
+            }
+
+            // 2. 讀取學生報名資料
             try {
                 const studentSnap = await getDocs(collection(db, "students"));
                 studentSnap.forEach((doc) => {
@@ -178,6 +205,7 @@
                 return;
             }
 
+            // 3. 讀取賽程表 (若有)
             try {
                 const scheduleSnap = await getDocs(collection(db, "schedule"));
                 scheduleSnap.forEach(doc => scheduleData.push({ id: doc.id, ...doc.data() }));
@@ -312,7 +340,20 @@
             if (isNaN(heatIndex)) { tbody.innerHTML = ''; return; }
 
             const isField = isFieldEvent(currentEventKey);
-            document.getElementById('table-title').innerText = `${currentEventKey} - ${stage === '初賽' ? `第 ${heatIndex + 1} 組` : '決賽'}`;
+            
+            // 顯示大會紀錄提示
+            const recordInfo = rawEventRecords[currentEventKey];
+            let recordHtml = recordInfo 
+                ? `<span class="text-sm bg-yellow-100 text-yellow-800 border border-yellow-300 px-3 py-1 rounded-full shadow-sm">
+                    <i class="fas fa-trophy mr-1"></i> 大會紀錄: <strong>${recordInfo.record}</strong> (${recordInfo.holder}, ${recordInfo.year})
+                   </span>` 
+                : '';
+            
+            document.getElementById('table-title').innerHTML = `
+                <span>${currentEventKey} - ${stage === '初賽' ? `第 ${heatIndex + 1} 組` : '決賽'}</span>
+                ${recordHtml}
+            `;
+
             const heatData = currentHeatsData[heatIndex];
             
             let html = '';
@@ -383,41 +424,33 @@
             input.value = formatted;
         }
 
-        // 田項距離格式化 (4位數字 -> AB.CDm) - 已修正前導零問題
+        // 田項距離格式化
         window.formatDistanceInput = function(input) {
-            // 1. 先把所有非數字去掉
             let rawVal = input.value.replace(/\D/g, '');
             if (rawVal.length === 0) { input.value = ''; return; }
-            
-            // 2. 轉成整數去除系統自動補上的 '0' (例如 '0012' 會變成 '12')，再轉回字串
             let val = parseInt(rawVal, 10).toString();
-            
-            // 3. 限制最多 4 位數
             if (val.length > 4) val = val.substring(0, 4);
-            
-            // 4. 格式化為 AB.CDm
             let formatted = '';
             if (val === '0') formatted = '0.00m';
             else if (val.length === 1) formatted = '0.0' + val + 'm';
             else if (val.length === 2) formatted = '0.' + val + 'm';
             else if (val.length === 3) formatted = val.slice(0, 1) + '.' + val.slice(1) + 'm';
             else formatted = val.slice(0, 2) + '.' + val.slice(2) + 'm';
-            
             input.value = formatted;
         }
 
         // 核心邏輯：核對名次與成績是否衝突，並檢查是否破紀錄
         function validateRecordsLogic(recordsArray, isField, eventKey) {
             let validRecords = recordsArray.filter(r => r.status === '正常' && r.resultStr && r.rank);
-            if (validRecords.length < 2) return true; 
+            if (validRecords.length === 0) return true;
 
             let parsedRecords = validRecords.map(rec => {
                 let val = 0;
                 if (isField) {
-                    const match = rec.resultStr.match(/(\d+)\.(\d+)m/);
+                    const match = rec.resultStr.match(/(\d+)\.(\d+)/);
                     if (match) val = parseInt(match[1]) * 100 + parseInt(match[2]); 
                 } else {
-                    const match = rec.resultStr.match(/(?:(\d+)m\s*)?(\d+)\.(\d+)s/);
+                    const match = rec.resultStr.match(/(?:(\d+)\s*m\s*)?(\d+)\.(\d+)/);
                     if (match) val = (parseInt(match[1]||0) * 60000) + (parseInt(match[2]) * 1000) + (parseInt(match[3]) * 10); 
                 }
                 return { ...rec, val, rankInt: parseInt(rec.rank) };
@@ -425,40 +458,46 @@
 
             parsedRecords.sort((a, b) => a.rankInt - b.rankInt);
 
-            for (let i = 0; i < parsedRecords.length - 1; i++) {
-                let current = parsedRecords[i];
-                let next = parsedRecords[i+1];
-                
-                if (current.rankInt === next.rankInt) {
-                    if (current.val !== next.val) {
-                        alert(`⚠️ 錯誤：名次與成績衝突！\n兩位第 ${current.rankInt} 名的成績不相同 (${current.resultStr} vs ${next.resultStr})\n請修正後再繼續。`);
-                        return false;
+            // 檢查名次與成績是否衝突
+            if (parsedRecords.length > 1) {
+                for (let i = 0; i < parsedRecords.length - 1; i++) {
+                    let current = parsedRecords[i];
+                    let next = parsedRecords[i+1];
+                    
+                    if (current.rankInt === next.rankInt) {
+                        if (current.val !== next.val) {
+                            alert(`⚠️ 錯誤：名次與成績衝突！\n兩位第 ${current.rankInt} 名的成績不相同 (${current.resultStr} vs ${next.resultStr})\n請修正後再繼續。`);
+                            return false;
+                        }
+                        continue;
                     }
-                    continue;
-                }
 
-                if (isField) {
-                    if (current.val < next.val) {
-                        alert(`⚠️ 錯誤：名次與成績衝突！\n第 ${current.rankInt} 名成績 (${current.resultStr}) 差於 第 ${next.rankInt} 名成績 (${next.resultStr})\n請修正後再繼續。`);
-                        return false;
-                    }
-                } else {
-                    if (current.val > next.val) {
-                        alert(`⚠️ 錯誤：名次與成績衝突！\n第 ${current.rankInt} 名成績 (${current.resultStr}) 差於 第 ${next.rankInt} 名成績 (${next.resultStr})\n請修正後再繼續。`);
-                        return false;
+                    if (isField) {
+                        if (current.val < next.val) {
+                            alert(`⚠️ 錯誤：名次與成績衝突！\n第 ${current.rankInt} 名成績 (${current.resultStr}) 差於 第 ${next.rankInt} 名成績 (${next.resultStr})\n請修正後再繼續。`);
+                            return false;
+                        }
+                    } else {
+                        if (current.val > next.val) {
+                            alert(`⚠️ 錯誤：名次與成績衝突！\n第 ${current.rankInt} 名成績 (${current.resultStr}) 差於 第 ${next.rankInt} 名成績 (${next.resultStr})\n請修正後再繼續。`);
+                            return false;
+                        }
                     }
                 }
             }
 
+            // 檢查是否破大會紀錄
             if (eventRecords[eventKey]) {
                 let bestRecord = parsedRecords[0];
                 let recordVal = eventRecords[eventKey];
                 let isBroken = false;
+                
                 if (isField && bestRecord.val > recordVal) isBroken = true;
                 if (!isField && bestRecord.val < recordVal) isBroken = true;
                 
                 if (isBroken) {
-                    alert(`🎉 破紀錄！\n號碼布 ${bestRecord.bib} 的成績 (${bestRecord.resultStr}) 打破了 ${eventKey} 的大會紀錄！`);
+                    let oldRec = rawEventRecords[eventKey];
+                    alert(`🎉 破紀錄！\n\n號碼布 ${bestRecord.bib} 的成績 (${bestRecord.resultStr}) \n打破了 ${eventKey} 的大會紀錄！\n\n(原紀錄：${oldRec.record} - ${oldRec.holder} [${oldRec.year}])`);
                 }
             }
             
