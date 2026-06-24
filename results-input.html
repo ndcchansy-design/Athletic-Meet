@@ -175,11 +175,15 @@
 
                 document.getElementById('school-year-display').innerText = `${schoolYear} 年度`;
 
-                const scheduleSnap = await window.getDocs(window.collection(window.db, "schedule"));
-                scheduleData = [];
-                scheduleSnap.forEach((doc) => {
-                    scheduleData.push({ id: doc.id, ...doc.data() });
-                });
+                try {
+                    const scheduleSnap = await window.getDocs(window.collection(window.db, "schedule"));
+                    scheduleData = [];
+                    scheduleSnap.forEach((doc) => {
+                        scheduleData.push({ id: doc.id, ...doc.data() });
+                    });
+                } catch (e) {
+                    console.warn("未能讀取 schedule 資料庫，將使用備用模式。");
+                }
 
                 populateDropdown();
             } catch (error) {
@@ -187,26 +191,56 @@
             }
         }
 
+        // 更新版的 populateDropdown：加入備用方案與多欄位名稱支援
         function populateDropdown() {
             const select = document.getElementById('event-select');
             select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
             
-            scheduleData.sort((a, b) => (parseInt(a['項目'] || a.itemNo) || 0) - (parseInt(b['項目'] || b.itemNo) || 0));
+            let hasSchedule = false;
 
-            scheduleData.forEach(item => {
-                const itemNo = item['項目'] || item.itemNo || '';
-                const group = item['女子組'] || item['男子組'] || '';
-                const event = item['徑項'] || item['田項'] || '';
-                const stage = (item['初賽'] || item.heats) ? '初賽' : '決賽';
-                const fullEventName = `${group} ${event}`.trim();
+            if (scheduleData && scheduleData.length > 0) {
+                hasSchedule = true;
                 
-                if (fullEventName) {
-                    const matchKey = normalizeString(`${event}${group}`);
-                    select.innerHTML += `<option value="${fullEventName}" data-matchkey="${matchKey}" data-itemno="${itemNo}" data-stage="${stage}">
-                        【${itemNo}】 ${fullEventName} (${stage})
-                    </option>`;
+                scheduleData.sort((a, b) => {
+                    const numA = parseInt(a['項目'] || a.itemNo || a.id) || 0;
+                    const numB = parseInt(b['項目'] || b.itemNo || b.id) || 0;
+                    return numA - numB;
+                });
+
+                scheduleData.forEach(item => {
+                    const itemNo = item['項目'] || item.itemNo || item.id || '';
+                    const group = item['女子組'] || item['男子組'] || item.girlsGroup || item.boysGroup || '';
+                    const event = item['徑項'] || item['田項'] || item.trackEvent || item.fieldEvent || '';
+                    const stage = (item['初賽'] || item.heats) ? '初賽' : '決賽';
+                    
+                    const fullEventName = `${group} ${event}`.trim();
+                    
+                    if (fullEventName) {
+                        const format1 = normalizeString(`${event}${group}`);
+                        const format2 = normalizeString(`${group}${event}`);
+                        
+                        let matchKey = format1;
+                        if (eventMap.has(format2)) matchKey = format2;
+
+                        select.innerHTML += `<option value="${fullEventName}" data-matchkey="${matchKey}" data-itemno="${itemNo}" data-stage="${stage}">
+                            【${itemNo || '未編號'}】 ${fullEventName} (${stage})
+                        </option>`;
+                    }
+                });
+            }
+            
+            // 備用方案：如果 schedule 沒資料，或者解析後下拉選單依然是空的，就從學生的報名資料 (eventMap) 自動生成
+            if (!hasSchedule || select.options.length === 1) {
+                const sortedEvents = Array.from(eventMap.keys()).sort();
+                if (sortedEvents.length === 0) {
+                    select.innerHTML = '<option value="">資料庫中目前沒有報名資料</option>';
+                    return;
                 }
-            });
+                sortedEvents.forEach(ev => {
+                    const count = eventMap.get(ev).length;
+                    select.innerHTML += `<option value="${ev}" data-matchkey="${ev}" data-itemno="" data-stage="初賽">${ev} (共 ${count} 人報名)</option>`;
+                });
+            }
         }
 
         // 載入輸入表格
