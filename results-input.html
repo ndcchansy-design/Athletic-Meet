@@ -58,7 +58,7 @@
                 </div>
             </div>
             <div class="mt-4 flex gap-3 justify-end border-t pt-4">
-                <button onclick="generateFinals()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded shadow transition flex items-center">
+                <button id="generate-finals-btn" onclick="generateFinals()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded shadow transition flex items-center">
                     <i class="fas fa-filter mr-2"></i> 結算初賽並產生決賽名單
                 </button>
                 <button onclick="showFinalReport()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow transition flex items-center">
@@ -78,12 +78,12 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-gray-100 text-gray-600 text-sm border-b-2 border-gray-200">
-                            <th class="py-3 px-4 w-16 text-center">線道</th>
+                            <th class="py-3 px-4 w-20 text-center">次序/線道</th>
                             <th class="py-3 px-4 w-24">號碼布</th>
                             <th class="py-3 px-4 w-32">姓名</th>
                             <th class="py-3 px-4 w-24">班別</th>
                             <th class="py-3 px-4 w-32">狀態</th>
-                            <th class="py-3 px-4 w-48">成績 (自動格式化)</th>
+                            <th class="py-3 px-4 w-48">成績</th>
                             <th class="py-3 px-4 w-24">名次</th>
                             <th class="py-3 px-4">備註</th>
                         </tr>
@@ -122,7 +122,6 @@
         </div>
     </div>
 
-    <!-- 將所有邏輯整合在同一個 module 中，避免執行順序問題 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -196,7 +195,8 @@
                     const group = item['女子組'] || item['男子組'] || item.girlsGroup || item.boysGroup || '';
                     const event = item['徑項'] || item['田項'] || item.trackEvent || item.fieldEvent || '';
                     
-                    if(group && event && !isFieldEvent(event)) {
+                    // 修正：不再過濾掉田項 (!isFieldEvent)
+                    if(group && event) {
                         const fullEventName = `${group} ${event}`.trim();
                         const format1 = normalizeString(`${event}${group}`);
                         const format2 = normalizeString(`${group}${event}`);
@@ -209,7 +209,6 @@
                 });
             }
 
-            // 備用模式：如果賽程表沒有資料或不匹配，直接從報名資料抓取
             if (!hasOptions) {
                 const sortedEvents = Array.from(eventMap.keys()).sort();
                 if (sortedEvents.length === 0) {
@@ -217,9 +216,7 @@
                     return;
                 }
                 sortedEvents.forEach(ev => {
-                    if (!isFieldEvent(ev)) {
-                        select.innerHTML += `<option value="${ev}" data-itemno="" data-fullname="${ev}">${ev}</option>`;
-                    }
+                    select.innerHTML += `<option value="${ev}" data-itemno="" data-fullname="${ev}">${ev}</option>`;
                 });
             }
 
@@ -232,61 +229,86 @@
         }
 
         async function generateHeats() {
-            const stage = document.getElementById('stage-select').value;
+            const stageSelect = document.getElementById('stage-select');
             const heatSelect = document.getElementById('heat-select');
+            const generateFinalsBtn = document.getElementById('generate-finals-btn');
             if (!currentEventKey) return;
 
             currentHeatsData = [];
-            
-            if (stage === "初賽") {
+            const isField = isFieldEvent(currentEventKey);
+
+            if (isField) {
+                // 田項邏輯：強制設定為決賽，隱藏結算按鈕，全部人排在同一組
+                stageSelect.value = "決賽";
+                stageSelect.disabled = true;
+                generateFinalsBtn.style.display = 'none';
+
                 let students = [...(eventMap.get(currentEventKey) || [])].sort((a, b) => (a.bibNumber || '').localeCompare(b.bibNumber || ''));
-                if (students.length > 0) {
-                    const numHeats = Math.ceil(students.length / 8); 
-                    const baseSize = Math.floor(students.length / numHeats); 
-                    let remainder = students.length % numHeats; 
-                    let studentIndex = 0;
-                    for (let i = 0; i < numHeats; i++) {
-                        let heatSize = baseSize + (remainder > 0 ? 1 : 0); remainder--;
-                        let heatStudents = students.slice(studentIndex, studentIndex + heatSize); studentIndex += heatSize;
-                        const laneOrder = [3, 4, 5, 6, 2, 7, 1, 8];
-                        let assignedLanes = laneOrder.slice(0, heatSize).sort((a, b) => a - b);
-                        let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
-                        heatStudents.forEach((stu, idx) => {
-                            const laneIndex = heatData.findIndex(d => d.assignedLane === assignedLanes[idx]);
-                            if (laneIndex !== -1) heatData[laneIndex] = { ...stu, assignedLane: assignedLanes[idx], isEmpty: false };
-                        });
-                        currentHeatsData.push(heatData);
-                    }
-                }
+                let heatData = students.map((stu, idx) => ({ ...stu, assignedLane: idx + 1, isEmpty: false }));
+                currentHeatsData.push(heatData);
             } else {
-                try {
-                    const docSnap = await getDoc(doc(db, "results", `${currentEventKey}_final`));
-                    let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
-                    if (docSnap.exists()) {
-                        const finalRecords = docSnap.data().records;
-                        finalRecords.forEach(rec => {
-                            const stu = globalStudentsData.find(s => s.bibNumber === rec.bib);
-                            if(stu) {
-                                const laneIndex = heatData.findIndex(d => d.assignedLane === parseInt(rec.lane));
-                                if(laneIndex !== -1) heatData[laneIndex] = { ...stu, assignedLane: parseInt(rec.lane), isEmpty: false };
-                            }
-                        });
+                // 徑項邏輯：恢復正常顯示
+                stageSelect.disabled = false;
+                generateFinalsBtn.style.display = 'flex';
+                const stage = stageSelect.value;
+                
+                if (stage === "初賽") {
+                    let students = [...(eventMap.get(currentEventKey) || [])].sort((a, b) => (a.bibNumber || '').localeCompare(b.bibNumber || ''));
+                    if (students.length > 0) {
+                        const numHeats = Math.ceil(students.length / 8); 
+                        const baseSize = Math.floor(students.length / numHeats); 
+                        let remainder = students.length % numHeats; 
+                        let studentIndex = 0;
+                        for (let i = 0; i < numHeats; i++) {
+                            let heatSize = baseSize + (remainder > 0 ? 1 : 0); remainder--;
+                            let heatStudents = students.slice(studentIndex, studentIndex + heatSize); studentIndex += heatSize;
+                            const laneOrder = [3, 4, 5, 6, 2, 7, 1, 8];
+                            let assignedLanes = laneOrder.slice(0, heatSize).sort((a, b) => a - b);
+                            let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
+                            heatStudents.forEach((stu, idx) => {
+                                const laneIndex = heatData.findIndex(d => d.assignedLane === assignedLanes[idx]);
+                                if (laneIndex !== -1) heatData[laneIndex] = { ...stu, assignedLane: assignedLanes[idx], isEmpty: false };
+                            });
+                            currentHeatsData.push(heatData);
+                        }
                     }
-                    currentHeatsData.push(heatData);
-                } catch(e) { console.error(e); }
+                } else {
+                    try {
+                        const docSnap = await getDoc(doc(db, "results", `${currentEventKey}_final`));
+                        let heatData = Array.from({length: 8}, (_, i) => ({ assignedLane: i + 1, isEmpty: true }));
+                        if (docSnap.exists()) {
+                            const finalRecords = docSnap.data().records;
+                            finalRecords.forEach(rec => {
+                                const stu = globalStudentsData.find(s => s.bibNumber === rec.bib);
+                                if(stu) {
+                                    const laneIndex = heatData.findIndex(d => d.assignedLane === parseInt(rec.lane));
+                                    if(laneIndex !== -1) heatData[laneIndex] = { ...stu, assignedLane: parseInt(rec.lane), isEmpty: false };
+                                }
+                            });
+                        }
+                        currentHeatsData.push(heatData);
+                    } catch(e) { console.error(e); }
+                }
             }
 
             heatSelect.innerHTML = '<option value="">-- 請選擇組別 --</option>';
             currentHeatsData.forEach((_, index) => {
-                heatSelect.innerHTML += `<option value="${index}">${stage === '初賽' ? `第 ${index + 1} 組` : '決賽組'}</option>`;
+                heatSelect.innerHTML += `<option value="${index}">${(stageSelect.value === '初賽' && !isField) ? `第 ${index + 1} 組` : '決賽組'}</option>`;
             });
-            heatSelect.onchange = () => renderTable(parseInt(heatSelect.value), stage);
+            heatSelect.onchange = () => renderTable(parseInt(heatSelect.value), stageSelect.value);
+            
+            // 自動選擇第一組並渲染
+            if(currentHeatsData.length > 0) {
+                heatSelect.value = "0";
+                renderTable(0, stageSelect.value);
+            }
         }
 
         async function renderTable(heatIndex, stage) {
             const tbody = document.getElementById('input-tbody');
             if (isNaN(heatIndex)) { tbody.innerHTML = ''; return; }
 
+            const isField = isFieldEvent(currentEventKey);
             document.getElementById('table-title').innerText = `${currentEventKey} - ${stage === '初賽' ? `第 ${heatIndex + 1} 組` : '決賽'}`;
             const heatData = currentHeatsData[heatIndex];
             
@@ -297,6 +319,11 @@
                 } else {
                     const name = stu.nameZh || stu.nameEn || '';
                     const cls = stu.classCode ? `${stu.classCode}(${stu.classNo||''})` : '';
+                    
+                    // 根據田項或徑項決定輸入框的行為
+                    const placeholder = isField ? '例：4.56' : '例：021651';
+                    const onInputAttr = isField ? '' : 'oninput="formatTimeInput(this)"';
+
                     html += `
                         <tr id="row-${stu.assignedLane}" class="border-b active-lane hover:bg-blue-50" data-bib="${stu.bibNumber}">
                             <td class="py-3 px-4 text-center font-bold text-xl">${stu.assignedLane}</td>
@@ -304,8 +331,8 @@
                             <td class="py-3 px-4 font-bold">${name}</td>
                             <td class="py-3 px-4">${cls}</td>
                             <td class="py-3 px-4"><select class="status-select border rounded px-2 py-1 w-full" onchange="handleStatusChange(this, ${stu.assignedLane})"><option value="正常">正常</option><option value="DNS">DNS</option><option value="DNF">DNF</option><option value="DQ">DQ</option></select></td>
-                            <td class="py-3 px-4"><input type="text" class="result-input border rounded px-3 py-1 w-full font-mono text-lg" placeholder="例：021651" oninput="formatTimeInput(this)"></td>
-                            <td class="py-3 px-4"><input type="number" class="rank-input border rounded px-3 py-1 w-full text-center font-bold" min="1" max="8"></td>
+                            <td class="py-3 px-4"><input type="text" class="result-input border rounded px-3 py-1 w-full font-mono text-lg" placeholder="${placeholder}" ${onInputAttr}></td>
+                            <td class="py-3 px-4"><input type="number" class="rank-input border rounded px-3 py-1 w-full text-center font-bold" min="1" max="50"></td>
                             <td class="py-3 px-4"><input type="text" class="remark-input border rounded px-3 py-1 w-full text-sm" placeholder="備註..."></td>
                         </tr>
                     `;
@@ -313,6 +340,7 @@
             });
             tbody.innerHTML = html;
 
+            // 讀取已儲存的成績
             try {
                 const docId = stage === '初賽' ? `${currentEventKey}_heat${heatIndex}` : `${currentEventKey}_final_results`;
                 const docSnap = await getDoc(doc(db, "results", docId));
@@ -356,6 +384,8 @@
         window.saveResults = async function() {
             const heatIndex = document.getElementById('heat-select').value;
             const stage = document.getElementById('stage-select').value;
+            const isField = isFieldEvent(currentEventKey);
+            
             if (heatIndex === "") return alert("請先選擇組別！");
 
             let recordsToSave = [];
@@ -367,7 +397,8 @@
                 const rank = row.querySelector('.rank-input').value;
                 const remark = row.querySelector('.remark-input').value;
 
-                if (status === '正常' && resultStr) {
+                // 只有徑項才檢查秒數是否大於 60
+                if (!isField && status === '正常' && resultStr) {
                     const match = resultStr.match(/(?:(\d+)m\s*)?(\d+)\.(\d+)s/);
                     if (match && parseInt(match[2]) >= 60) return alert(`❌ 錯誤：秒數不能大於 60 (${resultStr})`);
                 }
@@ -409,7 +440,9 @@
                     }
                 });
 
-                if(allValidRecords.length === 0) return alert("找不到任何有效的初賽成績！");
+                if(allValidRecords.length === 0) {
+                    return alert("找不到任何有效的初賽成績！\n\n請確認：\n1. 您是否已經輸入了成績？\n2. 輸入後是否已經點擊了綠色的「儲存本組成績」按鈕？\n（注意：每一組輸入完都必須先按儲存，系統才能進行結算）");
+                }
 
                 allValidRecords.sort((a, b) => a.timeMs - b.timeMs);
                 const top8 = allValidRecords.slice(0, 8);
