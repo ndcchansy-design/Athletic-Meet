@@ -62,7 +62,6 @@
         <div id="pages-container"></div>
     </div>
 
-    <!-- 將所有邏輯整合在同一個 module 中 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -80,7 +79,7 @@
         let globalStudentsData = [];
         let eventMap = new Map();
         let scheduleData = [];
-        let globalRecordsData = {}; // 儲存歷屆大會紀錄
+        let globalRecordsData = {}; 
         let globalSchoolYear = ""; 
 
         const getChineseYear = (yearStr) => {
@@ -197,8 +196,9 @@
             const stage = document.getElementById('stage-select').value;
             const eventTime = selectedOption.getAttribute('data-time') || '__:__';
 
-            // 取得該項目的大會紀錄
-            const eventRecord = globalRecordsData[eventName] || null;
+            // 增強紀錄比對邏輯：同時比對原始名稱、標準化名稱、以及 matchKey
+            const normalizedName = normalizeString(eventName);
+            const eventRecord = globalRecordsData[eventName] || globalRecordsData[normalizedName] || globalRecordsData[matchKey] || null;
 
             document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('export-btn').classList.remove('hidden');
@@ -281,7 +281,6 @@
             });
         }
 
-        // 新增 eventRecord 參數
         function buildA4Page(eventNo, eventName, stage, heatData, isField, isLongDist, role, subtitle, copyNum, heatName, eventTime, currentPage, totalPages, startIndex, eventRecord) {
             let category = "", item = eventName;
             const parts = eventName.split(' ');
