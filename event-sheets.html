@@ -9,17 +9,28 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
-        .a4-container { width: 210mm; min-height: 297mm; margin: 0 auto 20px auto; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 15mm; box-sizing: border-box; display: flex; flex-direction: column; }
+        /* 設定 A4 容器，使用 flex 並讓內容上下分散對齊，確保簽名欄在底部 */
+        .a4-container { 
+            width: 210mm; 
+            min-height: 297mm; 
+            margin: 0 auto 20px auto; 
+            background: white; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            padding: 15mm; 
+            box-sizing: border-box; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between;
+        }
         .sheet-table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-top: 15px; }
-        .sheet-table th, .sheet-table td { border: 1px solid #000; padding: 6px 2px; text-align: center; color: #000; }
+        /* 增加 height 讓每一行有固定高度，方便手寫 */
+        .sheet-table th, .sheet-table td { border: 1px solid #000; padding: 8px 4px; text-align: center; color: #000; height: 35px; }
         .sheet-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; font-weight: bold; font-size: 10pt; }
-        .editable-field { transition: background-color 0.2s; outline: none; border-bottom: 1px dashed #ccc; min-width: 50px; display: inline-block; }
         @media print, .pdf-mode {
             body { background-color: white; }
             .no-print { display: none !important; }
-            .a4-container { box-shadow: none; margin: 0; padding: 10mm; width: 100%; page-break-after: always; }
+            .a4-container { box-shadow: none; margin: 0; padding: 10mm; width: 100%; page-break-after: always; min-height: 100vh; }
             .a4-container:last-child { page-break-after: auto; }
-            .editable-field { border-bottom: none; }
         }
     </style>
 </head>
@@ -93,20 +104,60 @@
         const isFieldEvent = (eventName) => ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'].some(k => eventName.includes(k));
         const isLongDistance = (eventName) => eventName.toUpperCase().includes('800M') || eventName.toUpperCase().includes('1500M');
 
+        // 增強版的大會紀錄搜尋功能
+        const findRecord = (eventName, matchKey) => {
+            if (!globalRecordsData) return null;
+            const norm = normalizeString(eventName);
+            
+            // 1. 完全比對
+            if (globalRecordsData[eventName]) return globalRecordsData[eventName];
+            if (globalRecordsData[norm]) return globalRecordsData[norm];
+            if (matchKey && globalRecordsData[matchKey]) return globalRecordsData[matchKey];
+            
+            // 2. 嘗試拆分組別與項目並反轉 (例如：男子甲組 400M -> 400M男子甲組)
+            let group = "", item = "";
+            const parts = eventName.split(' ');
+            if (parts.length >= 2) {
+                group = parts[0];
+                item = parts.slice(1).join(' ');
+            } else {
+                const match = eventName.match(/^([\u4e00-\u9fa5]+)(.*)$/);
+                if (match) {
+                    group = match[1];
+                    item = match[2];
+                }
+            }
+            
+            const normGroup = normalizeString(group);
+            const normItem = normalizeString(item);
+            const swapped1 = `${normItem}${normGroup}`;
+            
+            if (globalRecordsData[swapped1]) return globalRecordsData[swapped1];
+            
+            // 3. 遍歷資料庫所有 key 進行模糊比對
+            for (const key in globalRecordsData) {
+                const normKey = normalizeString(key);
+                if (normKey === norm || normKey === swapped1) {
+                    return globalRecordsData[key];
+                }
+                // 如果 key 同時包含組別與項目名稱，且沒有多餘字元 (避免 100M 配對到 1500M)
+                if (normGroup && normItem && normKey.includes(normGroup) && normKey.includes(normItem)) {
+                    const remainder = normKey.replace(normGroup, '').replace(normItem, '');
+                    if (remainder === '') {
+                        return globalRecordsData[key];
+                    }
+                }
+            }
+            return null;
+        };
+
         async function fetchAllData() {
             if (!db) return;
-            
-            // 讀取歷屆紀錄
             try {
                 const recordsSnap = await getDoc(doc(db, "settings", "records"));
-                if (recordsSnap.exists()) {
-                    globalRecordsData = recordsSnap.data();
-                }
-            } catch (e) {
-                console.error("讀取歷屆紀錄失敗", e);
-            }
+                if (recordsSnap.exists()) globalRecordsData = recordsSnap.data();
+            } catch (e) { console.error("讀取歷屆紀錄失敗", e); }
 
-            // 讀取學生資料
             try {
                 const studentSnap = await getDocs(collection(db, "students"));
                 studentSnap.forEach((doc) => {
@@ -127,25 +178,20 @@
                 return;
             }
 
-            // 讀取賽程表
             try {
                 const scheduleSnap = await getDocs(collection(db, "schedule"));
                 scheduleSnap.forEach(doc => scheduleData.push({ id: doc.id, ...doc.data() }));
-            } catch (e) {
-                console.warn("未能讀取 schedule，使用備用模式。");
-            }
+            } catch (e) { console.warn("未能讀取 schedule"); }
             populateDropdown();
         }
 
         function populateDropdown() {
             const select = document.getElementById('event-select');
             select.innerHTML = '<option value="">-- 請選擇比賽項目 --</option>';
-            
             let hasOptions = false;
 
             if (scheduleData.length > 0) {
                 scheduleData.sort((a, b) => (parseInt(a['項目'] || a.itemNo || a.id) || 0) - (parseInt(b['項目'] || b.itemNo || b.id) || 0));
-
                 scheduleData.forEach(item => {
                     const itemNo = item['項目'] || item.itemNo || item.id || '';
                     const time = item['時間'] || item.time || '';
@@ -166,7 +212,6 @@
                 });
             }
 
-            // 如果賽程表無資料，使用備用模式
             if (!hasOptions) {
                 const sortedEvents = Array.from(eventMap.keys()).sort();
                 if (sortedEvents.length === 0) {
@@ -196,9 +241,8 @@
             const stage = document.getElementById('stage-select').value;
             const eventTime = selectedOption.getAttribute('data-time') || '__:__';
 
-            // 增強紀錄比對邏輯：同時比對原始名稱、標準化名稱、以及 matchKey
-            const normalizedName = normalizeString(eventName);
-            const eventRecord = globalRecordsData[eventName] || globalRecordsData[normalizedName] || globalRecordsData[matchKey] || null;
+            // 使用增強版搜尋功能找大會紀錄
+            const eventRecord = findRecord(eventName, matchKey);
 
             document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('export-btn').classList.remove('hidden');
@@ -226,9 +270,7 @@
                         });
                     }
                     heats.push({ heatName: '決賽', data: heatData });
-                } catch(e) {
-                    console.error("無法讀取決賽名單", e);
-                }
+                } catch(e) { console.error("無法讀取決賽名單", e); }
             } else if (isField) {
                 heats.push({ heatName: '', data: students });
             } else if (isLongDist) {
@@ -289,41 +331,68 @@
             const eventNoDisplay = eventNo ? `【${eventNo}】 ` : `【未編號】 `;
             const zhYear = getChineseYear(globalSchoolYear);
 
-            // 產生大會紀錄的 HTML
             let recordHtml = '';
             if (eventRecord) {
-                recordHtml = `<div class="text-sm mt-1 text-gray-800">大會紀錄：<span class="font-bold text-red-600 underline">${eventRecord.record}</span> (${eventRecord.holder}, ${eventRecord.year})</div>`;
+                const recValue = typeof eventRecord === 'object' ? (eventRecord.record || eventRecord.time || eventRecord.score || '') : eventRecord;
+                const recHolder = typeof eventRecord === 'object' ? (eventRecord.holder || eventRecord.name || '') : '';
+                const recYear = (typeof eventRecord === 'object' && eventRecord.year) ? `, ${eventRecord.year}` : '';
+                const holderStr = recHolder ? ` (${recHolder}${recYear})` : '';
+                recordHtml = `<div class="text-sm mt-1 text-gray-800">大會紀錄：<span class="font-bold text-red-600 underline">${recValue}</span>${holderStr}</div>`;
             } else {
                 recordHtml = `<div class="text-sm mt-1 text-gray-400">大會紀錄：無</div>`;
             }
 
             let tableHeaders = isField ? 
-                `<tr><th width="4%">次序</th><th width="6%">號碼布</th><th width="16%">姓名</th><th width="6%">班別</th><th width="7%">初 1</th><th width="7%">初 2</th><th width="7%">初 3</th><th width="6%">決賽次序</th><th width="7%">決 1</th><th width="7%">決 2</th><th width="7%">決 3</th><th width="12%">最佳成績</th><th width="8%">名次</th></tr>` : 
+                `<tr><th width="4%">次序</th><th width="6%">號碼布</th><th width="14%">姓名</th><th width="6%">班別</th><th width="7%">初 1</th><th width="7%">初 2</th><th width="7%">初 3</th><th width="6%">決賽<br>次序</th><th width="7%">決 1</th><th width="7%">決 2</th><th width="7%">決 3</th><th width="10%">最佳成績</th><th width="6%">名次</th></tr>` : 
                 `<tr><th width="6%">${isLongDist ? "次序" : "線道"}</th><th width="10%">號碼布</th><th width="25%">姓名</th><th width="8%">班別</th><th width="18%">成績 / 時間</th><th width="8%">名次</th><th width="25%">備註 (晉級成績)</th></tr>`;
 
             let tableRows = "";
             heatData.forEach((stu, idx) => {
                 if (stu.isEmpty) {
-                    tableRows += isField ? `<tr><td contenteditable="true">${startIndex + idx + 1}</td><td colspan="12"></td></tr>` : `<tr><td class="font-bold">${stu.assignedLane}</td><td colspan="6"></td></tr>`;
+                    if (isField) {
+                        // 修正：將 colspan="3" 拆開，確保垂直線顯示
+                        tableRows += `<tr><td>${startIndex + idx + 1}</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="bg-gray-100"></td><td></td><td></td><td></td><td class="bg-gray-50"></td><td></td></tr>`;
+                    } else {
+                        tableRows += `<tr><td class="font-bold">${stu.assignedLane}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+                    }
                 } else {
                     const name = stu.nameZh || stu.nameEn || '';
                     const cls = stu.classCode ? `${stu.classCode}(${stu.classNo||''})` : '';
                     const qualTime = stu.qualifyingTime ? `晉級成績: ${stu.qualifyingTime}` : '';
                     
                     if(isField) {
-                        tableRows += `<tr><td>${startIndex + idx + 1}</td><td class="font-bold">${stu.bibNumber}</td><td class="text-left px-1 text-sm">${name}</td><td>${cls}</td><td colspan="3"></td><td class="bg-gray-100"></td><td colspan="3"></td><td class="bg-gray-50"></td><td></td></tr>`;
+                        // 修正：將 colspan="3" 拆開為 3 個獨立的 <td>，確保垂直線顯示
+                        tableRows += `<tr>
+                            <td>${startIndex + idx + 1}</td>
+                            <td class="font-bold">${stu.bibNumber || ''}</td>
+                            <td class="text-left px-1 text-sm">${name}</td>
+                            <td>${cls}</td>
+                            <td></td><td></td><td></td>
+                            <td class="bg-gray-100"></td>
+                            <td></td><td></td><td></td>
+                            <td class="bg-gray-50"></td>
+                            <td></td>
+                        </tr>`;
                     } else {
-                        tableRows += `<tr><td class="font-bold">${stu.assignedLane}</td><td class="font-bold">${stu.bibNumber}</td><td class="text-left px-2">${name}</td><td>${cls}</td><td></td><td></td><td class="text-xs text-gray-500 text-left px-2">${qualTime}</td></tr>`;
+                        tableRows += `<tr>
+                            <td class="font-bold">${stu.assignedLane}</td>
+                            <td class="font-bold">${stu.bibNumber || ''}</td>
+                            <td class="text-left px-2">${name}</td>
+                            <td>${cls}</td>
+                            <td></td>
+                            <td></td>
+                            <td class="text-xs text-gray-500 text-left px-2">${qualTime}</td>
+                        </tr>`;
                     }
                 }
             });
 
             return `
                 <div class="a4-container">
-                    <div class="flex-1">
-                        <div class="text-center mb-6">
+                    <div>
+                        <div class="text-center mb-4">
                             <h1 class="text-2xl font-bold tracking-widest mb-1">獻主會聖母院書院</h1>
-                            <h2 class="text-xl font-bold tracking-wider mb-4">${zhYear}年度陸運會</h2>
+                            <h2 class="text-xl font-bold tracking-wider mb-3">${zhYear}年度陸運會</h2>
                             <div class="flex justify-between items-end border-b-2 border-black pb-2">
                                 <div class="text-left">
                                     <div class="text-lg font-bold">項目：${eventNoDisplay}${category} <span class="text-xl mx-2">${item}</span> ${stage}${heatName ? ` - ${heatName}` : ''}</div>
@@ -336,6 +405,17 @@
                             </div>
                         </div>
                         <table class="sheet-table"><thead>${tableHeaders}</thead><tbody>${tableRows}</tbody></table>
+                    </div>
+                    
+                    <!-- 簽署位置，會自動貼齊 A4 底部 -->
+                    <div class="mt-8">
+                        <div class="flex justify-between text-base px-10 font-bold">
+                            <div>紀錄員簽署：_______________________</div>
+                            <div>裁判長簽署：_______________________</div>
+                        </div>
+                        <div class="text-right text-xs text-gray-500 mt-4">
+                            頁數：${currentPage} / ${totalPages}
+                        </div>
                     </div>
                 </div>
             `;
@@ -355,7 +435,6 @@
             });
         }
 
-        // 啟動讀取
         fetchAllData();
     </script>
 </body>
