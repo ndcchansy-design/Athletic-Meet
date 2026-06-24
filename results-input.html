@@ -141,9 +141,6 @@
         }
 
         // ================= 大會紀錄設定區 =================
-        // 您可以在這裡填寫各項目的學校紀錄，系統會自動檢查是否破紀錄。
-        // 徑項單位為「毫秒」(例如 12.34秒 = 12340)
-        // 田項單位為「公分」(例如 5.67米 = 567)
         const eventRecords = {
             // "男甲100米": 11200, // 範例：11.20s
             // "女甲跳遠": 450,    // 範例：4.50m
@@ -326,7 +323,6 @@
                     const name = stu.nameZh || stu.nameEn || '';
                     const cls = stu.classCode ? `${stu.classCode}(${stu.classNo||''})` : '';
                     
-                    // 田項與徑項的輸入提示與事件綁定
                     const placeholder = isField ? '例：1234 (即12.34m)' : '例：021651';
                     const onInputAttr = isField ? 'oninput="formatDistanceInput(this)"' : 'oninput="formatTimeInput(this)"';
 
@@ -387,14 +383,22 @@
             input.value = formatted;
         }
 
-        // 田項距離格式化 (4位數字 -> AB.CDm)
+        // 田項距離格式化 (4位數字 -> AB.CDm) - 已修正前導零問題
         window.formatDistanceInput = function(input) {
-            let val = input.value.replace(/\D/g, '');
-            if (val.length === 0) { input.value = ''; return; }
+            // 1. 先把所有非數字去掉
+            let rawVal = input.value.replace(/\D/g, '');
+            if (rawVal.length === 0) { input.value = ''; return; }
+            
+            // 2. 轉成整數去除系統自動補上的 '0' (例如 '0012' 會變成 '12')，再轉回字串
+            let val = parseInt(rawVal, 10).toString();
+            
+            // 3. 限制最多 4 位數
             if (val.length > 4) val = val.substring(0, 4);
             
+            // 4. 格式化為 AB.CDm
             let formatted = '';
-            if (val.length === 1) formatted = '0.0' + val + 'm';
+            if (val === '0') formatted = '0.00m';
+            else if (val.length === 1) formatted = '0.0' + val + 'm';
             else if (val.length === 2) formatted = '0.' + val + 'm';
             else if (val.length === 3) formatted = val.slice(0, 1) + '.' + val.slice(1) + 'm';
             else formatted = val.slice(0, 2) + '.' + val.slice(2) + 'm';
@@ -404,32 +408,27 @@
 
         // 核心邏輯：核對名次與成績是否衝突，並檢查是否破紀錄
         function validateRecordsLogic(recordsArray, isField, eventKey) {
-            // 過濾出有成績與名次的正常紀錄
             let validRecords = recordsArray.filter(r => r.status === '正常' && r.resultStr && r.rank);
-            if (validRecords.length < 2) return true; // 資料不足以比較
+            if (validRecords.length < 2) return true; 
 
-            // 解析成績數值以便比較
             let parsedRecords = validRecords.map(rec => {
                 let val = 0;
                 if (isField) {
                     const match = rec.resultStr.match(/(\d+)\.(\d+)m/);
-                    if (match) val = parseInt(match[1]) * 100 + parseInt(match[2]); // 轉換為公分
+                    if (match) val = parseInt(match[1]) * 100 + parseInt(match[2]); 
                 } else {
                     const match = rec.resultStr.match(/(?:(\d+)m\s*)?(\d+)\.(\d+)s/);
-                    if (match) val = (parseInt(match[1]||0) * 60000) + (parseInt(match[2]) * 1000) + (parseInt(match[3]) * 10); // 轉換為毫秒
+                    if (match) val = (parseInt(match[1]||0) * 60000) + (parseInt(match[2]) * 1000) + (parseInt(match[3]) * 10); 
                 }
                 return { ...rec, val, rankInt: parseInt(rec.rank) };
             });
 
-            // 依照名次排序
             parsedRecords.sort((a, b) => a.rankInt - b.rankInt);
 
-            // 檢查名次與成績衝突
             for (let i = 0; i < parsedRecords.length - 1; i++) {
                 let current = parsedRecords[i];
                 let next = parsedRecords[i+1];
                 
-                // 處理同名次的情況
                 if (current.rankInt === next.rankInt) {
                     if (current.val !== next.val) {
                         alert(`⚠️ 錯誤：名次與成績衝突！\n兩位第 ${current.rankInt} 名的成績不相同 (${current.resultStr} vs ${next.resultStr})\n請修正後再繼續。`);
@@ -438,15 +437,12 @@
                     continue;
                 }
 
-                // 檢查成績邏輯
                 if (isField) {
-                    // 田項：名次越前面，數值(距離)應該越大
                     if (current.val < next.val) {
                         alert(`⚠️ 錯誤：名次與成績衝突！\n第 ${current.rankInt} 名成績 (${current.resultStr}) 差於 第 ${next.rankInt} 名成績 (${next.resultStr})\n請修正後再繼續。`);
                         return false;
                     }
                 } else {
-                    // 徑項：名次越前面，數值(時間)應該越小
                     if (current.val > next.val) {
                         alert(`⚠️ 錯誤：名次與成績衝突！\n第 ${current.rankInt} 名成績 (${current.resultStr}) 差於 第 ${next.rankInt} 名成績 (${next.resultStr})\n請修正後再繼續。`);
                         return false;
@@ -454,7 +450,6 @@
                 }
             }
 
-            // 檢查是否破紀錄
             if (eventRecords[eventKey]) {
                 let bestRecord = parsedRecords[0];
                 let recordVal = eventRecords[eventKey];
@@ -493,9 +488,8 @@
                 recordsToSave.push({ lane, bib, status, resultStr, rank, remark });
             }
 
-            // 儲存前先進行邏輯核對
             if (!validateRecordsLogic(recordsToSave, isField, currentEventKey)) {
-                return; // 驗證失敗，中斷儲存
+                return; 
             }
 
             const docId = stage === '初賽' ? `${currentEventKey}_heat${heatIndex}` : `${currentEventKey}_final_results`;
@@ -574,10 +568,9 @@
 
                 const records = docSnap.data().records.filter(r => r.rank && r.status === '正常');
                 
-                // 列印前再次進行邏輯核對
                 const isField = isFieldEvent(currentEventKey);
                 if (!validateRecordsLogic(records, isField, currentEventKey)) {
-                    return; // 驗證失敗，中斷列印
+                    return; 
                 }
 
                 records.sort((a, b) => parseInt(a.rank) - parseInt(b.rank));
@@ -622,7 +615,6 @@
             }
         }
 
-        // 啟動讀取
         fetchAllData();
     </script>
 </body>
