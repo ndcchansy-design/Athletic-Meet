@@ -11,13 +11,20 @@
         .empty-lane { background-color: #f1f5f9; color: #94a3b8; }
         .active-lane { background-color: #ffffff; }
         input:disabled, select:disabled { background-color: #f1f5f9; cursor: not-allowed; }
+        
+        /* 可編輯欄位的提示樣式 */
+        [contenteditable="true"] { transition: background-color 0.2s; }
+        [contenteditable="true"]:hover { background-color: #fef08a; cursor: text; }
+        [contenteditable="true"]:focus { background-color: #fef08a; outline: 1px dashed #ca8a04; }
+
         @media print {
             body * { visibility: hidden; }
             #print-report-container, #print-report-container * { visibility: visible; }
             #print-report-container { position: absolute; left: 0; top: 0; width: 100%; background: white; padding: 0; margin: 0; }
             .no-print { display: none !important; }
-            .report-table th, .report-table td { border: 1px solid #000; padding: 8px; text-align: center; }
-            .report-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; }
+            .report-table th, .report-table td { border: 1px solid #000; padding: 10px 8px; text-align: center; }
+            .report-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; font-weight: bold; }
+            [contenteditable="true"]:hover, [contenteditable="true"]:focus { background-color: transparent; outline: none; }
         }
     </style>
 </head>
@@ -112,28 +119,45 @@
 
     <!-- 列印報表容器 -->
     <div id="print-report-container" class="hidden max-w-5xl mx-auto p-10 bg-white min-h-screen">
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold mb-2">Notre Dame College</h1>
-            <h2 class="text-2xl font-bold mb-2">Sports Day (2025-2026)</h2>
-            <h3 class="text-xl italic mb-6">決賽日項目優勝者</h3>
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold mb-2 tracking-widest">獻主會聖母院書院</h1>
+            <h2 class="text-2xl font-bold mb-2 tracking-wider"><span id="report-school-year">--</span>年度陸運會</h2>
+            <h3 class="text-xl font-bold mb-4">決賽日項目優勝者</h3>
             
+            <div class="text-center text-gray-700 font-bold mb-4">
+                大會紀錄：<span id="report-event-record" class="text-red-600 underline">--</span>
+            </div>
+
             <div class="flex justify-between text-left text-lg font-bold border-b-2 border-black pb-2">
                 <div><p>場號：<span id="report-item-no" class="ml-2 font-normal">--</span></p><p>第幾組：<span class="ml-2 font-normal">全部</span></p></div>
                 <div class="text-center"><p>項目簡稱：<span id="report-event-short" class="ml-2 font-normal">--</span></p><p>項目名稱：<span id="report-event-name" class="ml-2 font-normal">--</span></p></div>
                 <div class="text-right"><p>組別：<span id="report-group" class="ml-2 font-normal">--</span></p><p>性別：<span id="report-gender" class="ml-2 font-normal">--</span></p></div>
             </div>
         </div>
+        
+        <div class="text-right text-sm text-gray-500 mb-2 no-print">
+            <i class="fas fa-edit"></i> 提示：表格內容可直接點擊修改，分數會自動重算
+        </div>
+
         <table class="w-full report-table text-sm border-collapse border border-black">
             <thead>
                 <tr>
-                    <th width="6%">名次</th><th width="12%">班別/班號</th><th width="18%">參加學生姓名</th><th width="8%">號碼布</th><th width="8%">學社</th><th width="15%">成績及紀錄</th><th width="10%">標準/紀錄/<br>參與獎分</th><th width="8%">名次分</th><th width="8%">缺席扣分</th><th width="7%">總分</th>
+                    <th width="6%">名次</th>
+                    <th width="12%">班別/班號</th>
+                    <th width="22%">參加學生姓名</th>
+                    <th width="10%">號碼布</th>
+                    <th width="18%">成績及紀錄</th>
+                    <th width="10%">標準/紀錄/<br>參與獎分</th>
+                    <th width="8%">名次分</th>
+                    <th width="8%">缺席扣分</th>
+                    <th width="6%">總分</th>
                 </tr>
             </thead>
             <tbody id="report-tbody"></tbody>
         </table>
         <div class="mt-8 text-center no-print">
-            <button onclick="window.print()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold"><i class="fas fa-print mr-2"></i> 確認列印</button>
-            <button onclick="document.getElementById('print-report-container').classList.add('hidden')" class="ml-4 bg-gray-500 text-white px-6 py-2 rounded font-bold">取消</button>
+            <button onclick="window.print()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold shadow-lg hover:bg-blue-700"><i class="fas fa-print mr-2"></i> 確認列印</button>
+            <button onclick="document.getElementById('print-report-container').classList.add('hidden')" class="ml-4 bg-gray-500 text-white px-6 py-2 rounded font-bold shadow hover:bg-gray-600">取消</button>
         </div>
     </div>
 
@@ -163,8 +187,16 @@
         let currentHeatsData = []; 
         let currentEventKey = "";
         let currentEventNo = "";
+        let globalSchoolYear = "";
         
         window.isEditMode = false;
+
+        const getChineseYear = (yearStr) => {
+            let y = yearStr || new Date().getFullYear().toString();
+            const targetYear = y.match(/^\d{4}/) ? y.match(/^\d{4}/)[0] : new Date().getFullYear().toString();
+            const zhMap = {'0':'零', '1':'一', '2':'二', '3':'三', '4':'四', '5':'五', '6':'六', '7':'七', '8':'八', '9':'九'};
+            return targetYear.split('').map(d => zhMap[d]).join('');
+        };
 
         const normalizeString = (str) => str ? str.replace(/\s+/g, '').toUpperCase().replace('擲壘球', '壘球').replace('擲標槍', '標槍').replace('擲鐵餅', '鐵餅').replace('推鉛球', '鉛球').replace('推銘球', '鉛球') : '';
         const isFieldEvent = (eventName) => ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'].some(k => eventName.includes(k));
@@ -198,6 +230,7 @@
                 studentSnap.forEach((doc) => {
                     const student = doc.data();
                     globalStudentsData.push(student);
+                    if (!globalSchoolYear && student.schoolYear) globalSchoolYear = student.schoolYear;
                     if (student.registeredEvents) {
                         student.registeredEvents.forEach(ev => {
                             const normalizedEv = normalizeString(ev);
@@ -298,11 +331,10 @@
                 const startListSnap = await getDoc(doc(db, "results", `${currentEventKey}_${stage}_startlist`));
                 if (startListSnap.exists()) {
                     const savedHeats = startListSnap.data().heats;
-                    // 修正：檢查是否為包含 students 的物件陣列（避免 Firebase Nested Arrays 錯誤的新格式）
                     if (savedHeats && savedHeats.length > 0 && savedHeats[0].students) {
                         currentHeatsData = savedHeats.map(h => h.students);
                     } else {
-                        currentHeatsData = savedHeats; // 相容舊格式
+                        currentHeatsData = savedHeats; 
                     }
                     finalizeGenerateHeats(stage);
                     return; 
@@ -443,9 +475,8 @@
 
             syncEditDataToState(heatIndex); 
 
-            // 修正：將陣列包陣列 (Nested Arrays) 改為「物件包陣列」，繞過 Firebase 的限制
             const sanitizedHeats = currentHeatsData.map((heat, idx) => ({
-                heatIndex: idx, // 加入一個屬性，讓它變成物件
+                heatIndex: idx, 
                 students: heat.map(stu => ({
                     assignedLane: parseInt(stu.assignedLane) || stu.assignedLane || '',
                     bibNumber: stu.bibNumber || '',
@@ -605,6 +636,22 @@
             input.value = formatted;
         }
 
+        function checkRecordBroken(resultStr, isField, eventKey) {
+            if (!eventRecords[eventKey]) return false;
+            let val = 0;
+            if (isField) {
+                const match = resultStr.match(/(\d+)\.(\d+)/);
+                if (match) val = parseInt(match[1]) * 100 + parseInt(match[2]); 
+            } else {
+                const match = resultStr.match(/(?:(\d+)\s*m\s*)?(\d+)\.(\d+)/);
+                if (match) val = (parseInt(match[1]||0) * 60000) + (parseInt(match[2]) * 1000) + (parseInt(match[3]) * 10); 
+            }
+            let recordVal = eventRecords[eventKey];
+            if (isField && val > recordVal) return true;
+            if (!isField && val > 0 && val < recordVal) return true;
+            return false;
+        }
+
         function validateRecordsLogic(recordsArray, isField, eventKey) {
             let validRecords = recordsArray.filter(r => r.status === '正常' && r.resultStr && r.rank);
             if (validRecords.length === 0) return true;
@@ -652,13 +699,7 @@
 
             if (eventRecords[eventKey]) {
                 let bestRecord = parsedRecords[0];
-                let recordVal = eventRecords[eventKey];
-                let isBroken = false;
-                
-                if (isField && bestRecord.val > recordVal) isBroken = true;
-                if (!isField && bestRecord.val < recordVal) isBroken = true;
-                
-                if (isBroken) {
+                if (checkRecordBroken(bestRecord.resultStr, isField, eventKey)) {
                     let oldRec = rawEventRecords[eventKey];
                     alert(`🎉 破紀錄！\n\n號碼布 ${bestRecord.bib} 的成績 (${bestRecord.resultStr}) \n打破了 ${eventKey} 的大會紀錄！\n\n(原紀錄：${oldRec.record} - ${oldRec.holder} [${oldRec.year}])`);
                 }
@@ -760,7 +801,6 @@
                     finalStartList.push({ assignedLane: laneOrder[i], isEmpty: true, bibNumber: '', nameZh: '', classCode: '' });
                 }
                 
-                // 修正：同樣將決賽名單包裝成物件陣列
                 await setDoc(doc(db, "results", `${currentEventKey}_決賽_startlist`), {
                     event: currentEventKey, 
                     stage: '決賽', 
@@ -776,6 +816,16 @@
                 console.error(error);
                 alert("產生失敗！\n錯誤原因：" + error.message);
             }
+        }
+
+        // 當使用者在報表上編輯分數時，即時重算總分
+        window.recalcTotal = function(elem) {
+            const row = elem.closest('tr');
+            const bonus = parseFloat(row.querySelector('.bonus-pt').innerText) || 0;
+            const rank = parseFloat(row.querySelector('.rank-pt').innerText) || 0;
+            const deduct = parseFloat(row.querySelector('.deduct-pt').innerText) || 0;
+            const total = bonus + rank - deduct;
+            row.querySelector('.total-pt').innerText = total.toFixed(1);
         }
 
         window.showFinalReport = async function() {
@@ -794,11 +844,21 @@
                 const select = document.getElementById('event-select');
                 const fullName = select.options[select.selectedIndex].getAttribute('data-fullname');
                 
+                // 設定標頭資訊
+                document.getElementById('report-school-year').innerText = getChineseYear(globalSchoolYear);
                 document.getElementById('report-item-no').innerText = currentEventNo || '--';
                 document.getElementById('report-event-short').innerText = currentEventKey;
                 document.getElementById('report-event-name').innerText = fullName;
                 document.getElementById('report-group').innerText = fullName.includes('甲') ? '甲' : (fullName.includes('乙') ? '乙' : '丙');
                 document.getElementById('report-gender').innerText = fullName.includes('女') ? '女' : '男';
+
+                // 顯示歷年紀錄
+                let recInfo = rawEventRecords[currentEventKey];
+                if (recInfo) {
+                    document.getElementById('report-event-record').innerText = `${recInfo.record} (${recInfo.holder}, ${recInfo.year})`;
+                } else {
+                    document.getElementById('report-event-record').innerText = '無';
+                }
 
                 const tbody = document.getElementById('report-tbody');
                 tbody.innerHTML = '';
@@ -809,16 +869,32 @@
                     const stu = globalStudentsData.find(s => s.bibNumber === rec.bib) || {};
                     const name = stu.nameZh || stu.nameEn || '';
                     const cls = stu.classCode ? `${stu.classCode} ${stu.classNo||''}` : '';
-                    const house = stu.house || ''; 
                     
+                    const isBroken = checkRecordBroken(rec.resultStr, isField, currentEventKey);
                     const rankPoint = pointsMap[parseInt(rec.rank)] || 0.0;
-                    const partPoint = 1.0; 
-                    const totalPoint = rankPoint + partPoint;
+                    
+                    let bonusPoint = 1.0; // 基礎參與分
+                    let recordText = rec.resultStr;
+                    
+                    if (isBroken) {
+                        bonusPoint += 2.0; // 破紀錄額外加 2 分
+                        recordText += " <span class='text-red-600 font-bold'>(新紀錄)</span>";
+                    }
+                    
+                    const totalPoint = rankPoint + bonusPoint;
 
+                    // 每一格都加上 contenteditable="true" 讓使用者可以直接點擊修改
                     tbody.innerHTML += `
                         <tr>
-                            <td>${rec.rank}</td><td>${cls}</td><td class="text-left px-2">${name}</td><td>${rec.bib}</td><td>${house}</td>
-                            <td class="font-bold">${rec.resultStr}</td><td>${partPoint.toFixed(1)}</td><td>${rankPoint.toFixed(1)}</td><td>0.0</td><td class="font-bold">${totalPoint.toFixed(1)}</td>
+                            <td contenteditable="true">${rec.rank}</td>
+                            <td contenteditable="true">${cls}</td>
+                            <td contenteditable="true" class="text-left px-2">${name}</td>
+                            <td contenteditable="true">${rec.bib}</td>
+                            <td contenteditable="true" class="font-bold">${recordText}</td>
+                            <td contenteditable="true" class="bonus-pt" oninput="recalcTotal(this)">${bonusPoint.toFixed(1)}</td>
+                            <td contenteditable="true" class="rank-pt" oninput="recalcTotal(this)">${rankPoint.toFixed(1)}</td>
+                            <td contenteditable="true" class="deduct-pt" oninput="recalcTotal(this)">0.0</td>
+                            <td contenteditable="true" class="total-pt font-bold">${totalPoint.toFixed(1)}</td>
                         </tr>
                     `;
                 });
