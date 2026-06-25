@@ -393,19 +393,22 @@
             
             if (isHighJump) {
                 tableClass += " high-jump-table";
+                // 根據圖片要求，加入「最佳高度試跳次數」和「總失敗次數」
                 tableHeaders = `
                     <tr>
                         <th width="4%" rowspan="2">次序</th>
-                        <th width="6%" rowspan="2">號碼布</th>
-                        <th width="15%" rowspan="2">姓名</th>
-                        <th width="6%" rowspan="2">班別</th>
+                        <th width="5%" rowspan="2">號碼布</th>
+                        <th width="12%" rowspan="2">姓名</th>
+                        <th width="5%" rowspan="2">班別</th>
                         <th colspan="10">高度 (m)</th>
-                        <th width="8%" rowspan="2">最佳<br>成績</th>
-                        <th width="6%" rowspan="2">名次</th>
+                        <th width="6%" rowspan="2">成績</th>
+                        <th width="5%" rowspan="2">名次</th>
+                        <th width="8%" rowspan="2">最佳高度<br>試跳次數</th>
+                        <th width="7%" rowspan="2">總失敗<br>次數</th>
                     </tr>
                     <tr>
-                        <th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th>
-                        <th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th>
+                        <th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th>
+                        <th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th>
                     </tr>
                 `;
             } else if (isField) {
@@ -418,7 +421,7 @@
             heatData.forEach((stu, idx) => {
                 if (stu.isEmpty) {
                     if (isHighJump) {
-                        tableRows += `<tr><td>${startIndex + idx + 1}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="bg-gray-50"></td><td></td></tr>`;
+                        tableRows += `<tr><td>${startIndex + idx + 1}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="bg-gray-50"></td><td></td><td></td><td></td></tr>`;
                     } else if (isField) {
                         tableRows += `<tr><td>${startIndex + idx + 1}</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="bg-gray-100"></td><td></td><td></td><td></td><td class="bg-gray-50"></td><td></td></tr>`;
                     } else {
@@ -437,7 +440,9 @@
                             <td>${cls}</td>
                             <td></td><td></td><td></td><td></td><td></td>
                             <td></td><td></td><td></td><td></td><td></td>
-                            <td class="bg-gray-50"></td>
+                            <td class="bg-gray-50 font-bold"></td>
+                            <td></td>
+                            <td></td>
                             <td></td>
                         </tr>`;
                     } else if (isField) {
