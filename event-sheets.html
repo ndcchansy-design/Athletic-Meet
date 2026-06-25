@@ -26,6 +26,11 @@
         /* 增加 height 讓每一行有固定高度，方便手寫 */
         .sheet-table th, .sheet-table td { border: 1px solid #000; padding: 8px 4px; text-align: center; color: #000; height: 35px; }
         .sheet-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; font-weight: bold; font-size: 10pt; }
+        
+        /* 跳高專用樣式調整 */
+        .high-jump-table th, .high-jump-table td { padding: 4px 2px; }
+        .high-jump-table th[colspan="10"] { letter-spacing: 5px; }
+        
         @media print, .pdf-mode {
             body { background-color: white; }
             .no-print { display: none !important; }
@@ -105,6 +110,7 @@
 
         const normalizeString = (str) => str ? str.replace(/\s+/g, '').toUpperCase().replace('擲壘球', '壘球').replace('擲標槍', '標槍').replace('擲鐵餅', '鐵餅').replace('推鉛球', '鉛球').replace('推銘球', '鉛球') : '';
         const isFieldEvent = (eventName) => ['跳高', '跳遠', '鐵餅', '標槍', '鉛球', '壘球'].some(k => eventName.includes(k));
+        const isHighJumpEvent = (eventName) => eventName.includes('跳高');
         const isLongDistance = (eventName) => eventName.toUpperCase().includes('800M') || eventName.toUpperCase().includes('1500M');
 
         const findRecord = (eventName, matchKey) => {
@@ -248,14 +254,13 @@
 
             let students = [...(eventMap.get(matchKey) || [])].sort((a, b) => (a.bibNumber || '').localeCompare(b.bibNumber || ''));
             const isField = isFieldEvent(eventName);
+            const isHighJump = isHighJumpEvent(eventName);
             const isLongDist = isLongDistance(eventName);
             
             let heats = []; 
             let hasStartList = false;
 
-            // ================= 核心修改 1：正確對應成績輸入系統的儲存路徑與資料結構 =================
             try {
-                // 修正 1：成績輸入系統是存在 "results" 集合，並且檔名後綴為 "_startlist"
                 const startListSnap = await getDoc(doc(db, "results", `${matchKey}_${stage}_startlist`));
                 if (startListSnap.exists()) {
                     const savedHeats = startListSnap.data().heats;
@@ -266,11 +271,7 @@
                         } else if (stage === '決賽' && !isField) {
                             heatName = '決賽';
                         }
-                        
-                        // 修正 2：因為成績輸入系統改成了「物件包陣列」，所以要讀取 heatObj.students
-                        // (加入 fallback 機制以相容舊的純陣列格式)
                         const studentsData = heatObj.students ? heatObj.students : heatObj;
-                        
                         heats.push({ heatName: heatName, data: studentsData });
                     });
                     hasStartList = true;
@@ -279,9 +280,7 @@
             } catch (e) {
                 console.error("讀取 start_lists 失敗", e);
             }
-            // =================================================================================
 
-            // 如果是決賽且讀取了 start_lists，嘗試把晉級成績 (qualifyingTime) 補上去
             if (hasStartList && stage === '決賽' && !isField && !isLongDist) {
                 try {
                     const finalSnap = await getDoc(doc(db, "results", `${matchKey}_final`));
@@ -299,7 +298,6 @@
                 } catch(e) {}
             }
 
-            // 如果沒有自訂名單，使用原本的動態生成
             if (!hasStartList) {
                 if (stage === "決賽" && !isField && !isLongDist) {
                     try {
@@ -365,13 +363,13 @@
                     const totalPages = Math.ceil(heat.data.length / 20) || 1;
                     for (let p = 0; p < totalPages; p++) {
                         const chunk = heat.data.slice(p * 20, (p + 1) * 20);
-                        container.innerHTML += buildA4Page(eventNo, eventName, stage, chunk, isField, isLongDist, copy.role, copy.subtitle, index + 1, heat.heatName, eventTime, p + 1, totalPages, p * 20, eventRecord);
+                        container.innerHTML += buildA4Page(eventNo, eventName, stage, chunk, isField, isHighJump, isLongDist, copy.role, copy.subtitle, index + 1, heat.heatName, eventTime, p + 1, totalPages, p * 20, eventRecord);
                     }
                 });
             });
         }
 
-        function buildA4Page(eventNo, eventName, stage, heatData, isField, isLongDist, role, subtitle, copyNum, heatName, eventTime, currentPage, totalPages, startIndex, eventRecord) {
+        function buildA4Page(eventNo, eventName, stage, heatData, isField, isHighJump, isLongDist, role, subtitle, copyNum, heatName, eventTime, currentPage, totalPages, startIndex, eventRecord) {
             let category = "", item = eventName;
             const parts = eventName.split(' ');
             if(parts.length > 1) { category = parts[0]; item = parts.slice(1).join(' '); }
@@ -390,14 +388,38 @@
                 recordHtml = `<div class="text-sm mt-1 text-gray-400">大會紀錄：無</div>`;
             }
 
-            let tableHeaders = isField ? 
-                `<tr><th width="4%">次序</th><th width="6%">號碼布</th><th width="14%">姓名</th><th width="6%">班別</th><th width="7%">初 1</th><th width="7%">初 2</th><th width="7%">初 3</th><th width="6%">決賽<br>次序</th><th width="7%">決 1</th><th width="7%">決 2</th><th width="7%">決 3</th><th width="10%">最佳成績</th><th width="6%">名次</th></tr>` : 
-                `<tr><th width="6%">${isLongDist ? "次序" : "線道"}</th><th width="10%">號碼布</th><th width="25%">姓名</th><th width="8%">班別</th><th width="18%">成績 / 時間</th><th width="8%">名次</th><th width="25%">備註 (晉級成績)</th></tr>`;
+            let tableHeaders = "";
+            let tableClass = "sheet-table";
+            
+            if (isHighJump) {
+                tableClass += " high-jump-table";
+                tableHeaders = `
+                    <tr>
+                        <th width="4%" rowspan="2">次序</th>
+                        <th width="6%" rowspan="2">號碼布</th>
+                        <th width="15%" rowspan="2">姓名</th>
+                        <th width="6%" rowspan="2">班別</th>
+                        <th colspan="10">高度 (m)</th>
+                        <th width="8%" rowspan="2">最佳<br>成績</th>
+                        <th width="6%" rowspan="2">名次</th>
+                    </tr>
+                    <tr>
+                        <th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th>
+                        <th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th><th width="4.5%"></th>
+                    </tr>
+                `;
+            } else if (isField) {
+                tableHeaders = `<tr><th width="4%">次序</th><th width="6%">號碼布</th><th width="14%">姓名</th><th width="6%">班別</th><th width="7%">初 1</th><th width="7%">初 2</th><th width="7%">初 3</th><th width="6%">決賽<br>次序</th><th width="7%">決 1</th><th width="7%">決 2</th><th width="7%">決 3</th><th width="10%">最佳成績</th><th width="6%">名次</th></tr>`;
+            } else {
+                tableHeaders = `<tr><th width="6%">${isLongDist ? "次序" : "線道"}</th><th width="10%">號碼布</th><th width="25%">姓名</th><th width="8%">班別</th><th width="18%">成績 / 時間</th><th width="8%">名次</th><th width="25%">備註 (晉級成績)</th></tr>`;
+            }
 
             let tableRows = "";
             heatData.forEach((stu, idx) => {
                 if (stu.isEmpty) {
-                    if (isField) {
+                    if (isHighJump) {
+                        tableRows += `<tr><td>${startIndex + idx + 1}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="bg-gray-50"></td><td></td></tr>`;
+                    } else if (isField) {
                         tableRows += `<tr><td>${startIndex + idx + 1}</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="bg-gray-100"></td><td></td><td></td><td></td><td class="bg-gray-50"></td><td></td></tr>`;
                     } else {
                         tableRows += `<tr><td class="font-bold">${stu.assignedLane}</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
@@ -407,7 +429,18 @@
                     const cls = stu.classCode ? `${stu.classCode}(${stu.classNo||''})` : '';
                     const qualTime = stu.qualifyingTime ? `晉級成績: ${stu.qualifyingTime}` : '';
                     
-                    if(isField) {
+                    if (isHighJump) {
+                        tableRows += `<tr>
+                            <td>${startIndex + idx + 1}</td>
+                            <td class="font-bold">${stu.bibNumber || ''}</td>
+                            <td class="text-left px-1 text-sm">${name}</td>
+                            <td>${cls}</td>
+                            <td></td><td></td><td></td><td></td><td></td>
+                            <td></td><td></td><td></td><td></td><td></td>
+                            <td class="bg-gray-50"></td>
+                            <td></td>
+                        </tr>`;
+                    } else if (isField) {
                         tableRows += `<tr>
                             <td>${startIndex + idx + 1}</td>
                             <td class="font-bold">${stu.bibNumber || ''}</td>
@@ -433,6 +466,8 @@
                 }
             });
 
+            const highJumpLegend = isHighJump ? `<div class="text-sm font-bold text-gray-700 mt-2 mb-2">圖例： O = 成功 (Make) &nbsp;&nbsp;&nbsp;&nbsp; X = 失敗 (Miss) &nbsp;&nbsp;&nbsp;&nbsp; - = 免跳 (Pass)</div>` : '';
+
             return `
                 <div class="a4-container">
                     <div>
@@ -450,7 +485,8 @@
                                 </div>
                             </div>
                         </div>
-                        <table class="sheet-table"><thead>${tableHeaders}</thead><tbody>${tableRows}</tbody></table>
+                        <table class="${tableClass}"><thead>${tableHeaders}</thead><tbody>${tableRows}</tbody></table>
+                        ${highJumpLegend}
                     </div>
                     
                     <!-- 簽署位置，會自動貼齊 A4 底部 -->
