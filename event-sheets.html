@@ -9,7 +9,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
-        /* 設定 A4 容器，使用 flex 並讓內容上下分散對齊，確保簽名欄在底部 */
+        
+        /* 預設直式 A4 容器 */
         .a4-container { 
             width: 210mm; 
             min-height: 297mm; 
@@ -22,8 +23,15 @@
             flex-direction: column; 
             justify-content: space-between;
         }
+
+        /* 橫式 A4 容器 (跳高專用) */
+        .landscape-layout .a4-container {
+            width: 297mm;
+            min-height: 210mm;
+            page: landscape_page; /* 觸發列印時的橫向設定 */
+        }
+
         .sheet-table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-top: 15px; }
-        /* 增加 height 讓每一行有固定高度，方便手寫 */
         .sheet-table th, .sheet-table td { border: 1px solid #000; padding: 8px 4px; text-align: center; color: #000; height: 35px; }
         .sheet-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; font-weight: bold; font-size: 10pt; }
         
@@ -31,12 +39,22 @@
         .high-jump-table th, .high-jump-table td { padding: 4px 2px; }
         .high-jump-table th[colspan="10"] { letter-spacing: 5px; }
         
-        @media print, .pdf-mode {
+        /* 列印與 PDF 匯出設定 */
+        @page { size: A4 portrait; margin: 0; }
+        @page landscape_page { size: A4 landscape; margin: 0; }
+
+        @media print {
             body { background-color: white; }
             .no-print { display: none !important; }
             .a4-container { box-shadow: none; margin: 0; padding: 10mm; width: 100%; page-break-after: always; min-height: 100vh; }
             .a4-container:last-child { page-break-after: auto; }
         }
+
+        /* 確保 html2canvas 截圖時維持正確的 mm 比例 */
+        .pdf-mode { background-color: white; }
+        .pdf-mode .no-print { display: none !important; }
+        .pdf-mode .a4-container { box-shadow: none; margin: 0; page-break-after: always; width: 210mm !important; min-height: 297mm !important; padding: 10mm; }
+        .pdf-mode.landscape-layout .a4-container { width: 297mm !important; min-height: 210mm !important; }
     </style>
 </head>
 <body>
@@ -100,6 +118,7 @@
         let scheduleData = [];
         let globalRecordsData = {}; 
         let globalSchoolYear = ""; 
+        window.currentOrientation = 'portrait'; // 記錄當前 PDF 方向
 
         const getChineseYear = (yearStr) => {
             let y = yearStr || new Date().getFullYear().toString();
@@ -246,6 +265,19 @@
             const eventTime = selectedOption.getAttribute('data-time') || '__:__';
 
             const eventRecord = findRecord(eventName, matchKey);
+            const isField = isFieldEvent(eventName);
+            const isHighJump = isHighJumpEvent(eventName);
+            const isLongDist = isLongDistance(eventName);
+
+            // 判斷是否為跳高，切換橫直式版面
+            const wrapper = document.getElementById('pdf-wrapper');
+            if (isHighJump) {
+                wrapper.classList.add('landscape-layout');
+                window.currentOrientation = 'landscape';
+            } else {
+                wrapper.classList.remove('landscape-layout');
+                window.currentOrientation = 'portrait';
+            }
 
             document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('export-btn').classList.remove('hidden');
@@ -253,9 +285,6 @@
             container.innerHTML = ''; 
 
             let students = [...(eventMap.get(matchKey) || [])].sort((a, b) => (a.bibNumber || '').localeCompare(b.bibNumber || ''));
-            const isField = isFieldEvent(eventName);
-            const isHighJump = isHighJumpEvent(eventName);
-            const isLongDist = isLongDistance(eventName);
             
             let heats = []; 
             let hasStartList = false;
@@ -275,7 +304,6 @@
                         heats.push({ heatName: heatName, data: studentsData });
                     });
                     hasStartList = true;
-                    console.log("✅ 成功載入自訂編排名單");
                 }
             } catch (e) {
                 console.error("讀取 start_lists 失敗", e);
@@ -358,12 +386,15 @@
                 { role: "最終紀錄", subtitle: "大會紀錄組存檔" }
             ];
 
+            // 橫式高度較矮，每頁行數需縮減至 13 行以防超出邊界；直式維持 20 行
+            const rowsPerPage = isHighJump ? 13 : 20;
+
             heats.forEach((heat) => {
                 copies.forEach((copy, index) => {
-                    const totalPages = Math.ceil(heat.data.length / 20) || 1;
+                    const totalPages = Math.ceil(heat.data.length / rowsPerPage) || 1;
                     for (let p = 0; p < totalPages; p++) {
-                        const chunk = heat.data.slice(p * 20, (p + 1) * 20);
-                        container.innerHTML += buildA4Page(eventNo, eventName, stage, chunk, isField, isHighJump, isLongDist, copy.role, copy.subtitle, index + 1, heat.heatName, eventTime, p + 1, totalPages, p * 20, eventRecord);
+                        const chunk = heat.data.slice(p * rowsPerPage, (p + 1) * rowsPerPage);
+                        container.innerHTML += buildA4Page(eventNo, eventName, stage, chunk, isField, isHighJump, isLongDist, copy.role, copy.subtitle, index + 1, heat.heatName, eventTime, p + 1, totalPages, p * rowsPerPage, eventRecord);
                     }
                 });
             });
@@ -393,22 +424,22 @@
             
             if (isHighJump) {
                 tableClass += " high-jump-table";
-                // 根據圖片要求，加入「最佳高度試跳次數」和「總失敗次數」
+                // 完美還原圖片中的欄位與比例
                 tableHeaders = `
                     <tr>
                         <th width="4%" rowspan="2">次序</th>
-                        <th width="5%" rowspan="2">號碼布</th>
+                        <th width="6%" rowspan="2">號碼布</th>
                         <th width="12%" rowspan="2">姓名</th>
                         <th width="5%" rowspan="2">班別</th>
                         <th colspan="10">高度 (m)</th>
                         <th width="6%" rowspan="2">成績</th>
                         <th width="5%" rowspan="2">名次</th>
-                        <th width="8%" rowspan="2">最佳高度<br>試跳次數</th>
-                        <th width="7%" rowspan="2">總失敗<br>次數</th>
+                        <th width="6%" rowspan="2">最佳高度<br>試跳次數</th>
+                        <th width="6%" rowspan="2">總失敗<br>次數</th>
                     </tr>
                     <tr>
-                        <th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th>
-                        <th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th><th width="4.8%"></th>
+                        <th width="5%"></th><th width="5%"></th><th width="5%"></th><th width="5%"></th><th width="5%"></th>
+                        <th width="5%"></th><th width="5%"></th><th width="5%"></th><th width="5%"></th><th width="5%"></th>
                     </tr>
                 `;
             } else if (isField) {
@@ -494,7 +525,6 @@
                         ${highJumpLegend}
                     </div>
                     
-                    <!-- 簽署位置，會自動貼齊 A4 底部 -->
                     <div class="mt-8">
                         <div class="flex justify-between text-base px-4 font-bold">
                             <div>召集員簽署：___________________</div>
@@ -512,7 +542,15 @@
         window.exportPDF = function() {
             const element = document.getElementById('pdf-wrapper');
             element.classList.add('pdf-mode');
-            const opt = { margin: 0, filename: `陸運會_紀錄表.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            
+            // 動態帶入 window.currentOrientation (portrait 或 landscape)
+            const opt = { 
+                margin: 0, 
+                filename: `陸運會_紀錄表.pdf`, 
+                image: { type: 'jpeg', quality: 0.98 }, 
+                html2canvas: { scale: 2, useCORS: true }, 
+                jsPDF: { unit: 'mm', format: 'a4', orientation: window.currentOrientation } 
+            };
             
             const btn = document.getElementById('export-btn');
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 處理中...';
