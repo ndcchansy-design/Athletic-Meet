@@ -17,13 +17,25 @@
         [contenteditable="true"]:hover { background-color: #fef08a; cursor: text; }
         [contenteditable="true"]:focus { background-color: #fef08a; outline: 1px dashed #ca8a04; }
 
+        /* 報表表格樣式 (螢幕預覽與列印共用，確保對齊一致) */
+        .report-table { width: 100%; border-collapse: collapse; }
+        .report-table th, .report-table td { 
+            border: 1px solid #000; 
+            padding: 10px 8px; 
+            text-align: center; /* 預設全部置中 */
+            vertical-align: middle;
+        }
+        .report-table th { 
+            background-color: #f3f4f6 !important; 
+            font-weight: bold; 
+        }
+
         @media print {
             body * { visibility: hidden; }
             #print-report-container, #print-report-container * { visibility: visible; }
             #print-report-container { position: absolute; left: 0; top: 0; width: 100%; background: white; padding: 0; margin: 0; }
             .no-print { display: none !important; }
-            .report-table th, .report-table td { border: 1px solid #000; padding: 10px 8px; text-align: center; }
-            .report-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; font-weight: bold; }
+            .report-table th { -webkit-print-color-adjust: exact; }
             [contenteditable="true"]:hover, [contenteditable="true"]:focus { background-color: transparent; outline: none; }
         }
     </style>
@@ -139,7 +151,7 @@
             <i class="fas fa-edit"></i> 提示：表格內容可直接點擊修改，分數會自動重算
         </div>
 
-        <table class="w-full report-table text-sm border-collapse border border-black">
+        <table class="report-table text-sm">
             <thead>
                 <tr>
                     <th width="6%">名次</th>
@@ -884,11 +896,12 @@
                     const totalPoint = rankPoint + bonusPoint;
 
                     // 每一格都加上 contenteditable="true" 讓使用者可以直接點擊修改
+                    // 姓名欄位特別加上 style="text-align: left; padding-left: 15px;" 確保靠左且有縮排
                     tbody.innerHTML += `
                         <tr>
                             <td contenteditable="true">${rec.rank}</td>
                             <td contenteditable="true">${cls}</td>
-                            <td contenteditable="true" class="text-left px-2">${name}</td>
+                            <td contenteditable="true" style="text-align: left; padding-left: 15px;">${name}</td>
                             <td contenteditable="true">${rec.bib}</td>
                             <td contenteditable="true" class="font-bold">${recordText}</td>
                             <td contenteditable="true" class="bonus-pt" oninput="recalcTotal(this)">${bonusPoint.toFixed(1)}</td>
